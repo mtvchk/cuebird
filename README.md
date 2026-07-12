@@ -27,7 +27,7 @@ use *is* the setup.
 
 ```
 /plugin marketplace add mtvchk/notifyme
-/plugin install notifyme
+/plugin install notifyme@notifyme
 ```
 
 No further configuration. The first time you accept a reminder, macOS asks
@@ -59,7 +59,7 @@ you'll see.
 - **`notifyme:remind`** — create a reminder explicitly ("remind me August 3rd about the release").
 - **`notifyme:reminders`** — the journal: see and manage every reminder and every past decision — active, declined, deferred, done — all reversible.
 - **`notifyme:resume`** — pick up the work a fired reminder was about; also triggers naturally when you mention a reminder that arrived.
-- **`notifyme:doctor`** — run seven self-diagnostic checks and get an on-demand update check.
+- **`notifyme:doctor`** — run seven self-diagnostic checks (the seventh is an on-demand update check).
 
 ## Privacy
 
