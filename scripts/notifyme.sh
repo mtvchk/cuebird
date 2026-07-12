@@ -210,6 +210,7 @@ case "$cmd" in
     [ "$want" = "active" ] && want="accepted"
     out=$(jxa_journal list "$want" "$proj")
     [ -n "$out" ] && printf '%s\n' "$out"
+    exit 0
     ;;
   get)
     id="${1:-}"; [ -n "$id" ] || die2 "missing id"

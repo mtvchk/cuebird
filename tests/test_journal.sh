@@ -67,4 +67,9 @@ NOTIFYME_STATE_DIR="$CF" NOTIFYME_ID="$cfid" "$N" log declined 'carry' '2026-12-
 NOTIFYME_STATE_DIR="$CF" "$N" get "$cfid" | grep -q '"resume_prompt":"resume me"' || fail "transition dropped resume_prompt"
 NOTIFYME_STATE_DIR="$CF" "$N" get "$cfid" | grep -q '"project":"ProjCF"' || fail "transition dropped project"
 
+# empty journal list must exit 0 with no output
+EMPTY=$(mktemp -d)
+NOTIFYME_STATE_DIR="$EMPTY" "$N" list all >/dev/null 2>&1 || fail "list all on empty journal must exit 0"
+[ -z "$(NOTIFYME_STATE_DIR="$EMPTY" "$N" list all)" ] || fail "list all on empty journal must print nothing"
+
 echo "ALL JOURNAL TESTS PASSED"
