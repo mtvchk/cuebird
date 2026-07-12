@@ -349,11 +349,17 @@ trace or AppleScript error text.
 Every adapter is one executable implementing:
 
 ```
-adapter add <iso8601-datetime> <title> <body>   → prints delivery-id, exit 0
-adapter list                                     → JSON lines of pending items
-adapter delete <delivery-id>                     → exit 0
-adapter health                                   → exit 0 + "ok", or exit 1 + reason
+adapter add <local-datetime-components> <title> <body>
+                             → prints delivery-id, exit 0
+adapter list                 → one "id<TAB>title" line per pending item
+adapter status <delivery-id> → "pending" | "completed" | "missing"
+adapter complete <delivery-id> → exit 0
+adapter delete <delivery-id> → exit 0
+adapter health               → exit 0 + "ok …", or nonzero + reason
 ```
+
+`status` is what makes reconciliation (§8.3) possible: completed-in-app vs
+deleted-in-app are different journal outcomes (`done` vs `cancelled`).
 
 `config.json` gains `"adapter": "apple-reminders"` (default). v2 adds
 `ntfy.sh` adapter (delivery: ntfy app on any phone; scheduling beyond ntfy's
