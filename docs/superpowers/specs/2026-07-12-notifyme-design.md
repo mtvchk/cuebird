@@ -48,24 +48,51 @@ Apple way: narrow and flawless, honestly labeled.
 
 ### 4.1 The offer (core loop)
 
+**User-originated deadline:**
+
 ```
 User:   "цю фічу треба здати до 26 липня"
 Claude: (continues the actual work, then, at a natural pause)
         "До речі — поставити нагадування на 26 липня? Прийде на iPhone."
 User:   "так" / "давай на 25-го зранку"
-Claude: ✓ Нагадування: «NotifyMe: здати фічу» — 25 лип, 09:00.
+Claude: ✓ Нагадування: «здати фічу» — 25 лип, 09:00.
         З'явиться в Reminders на всіх твоїх Apple-пристроях.
 ```
 
+**Claude-originated checkpoint (equally important):** the offer triggers not
+only on the user's words but on Claude's **own conclusions and plans**. When
+Claude's analysis produces a concrete future decision point, it offers:
+
+```
+Claude: "...Пілотні сторінки з'явились ~10.07, для гейту потрібно 14+ днів
+        стабільної індексації — раніше кінця липня перевіряти немає сенсу.
+
+        Поставити нагадування на 24 липня — перевірити GSC Coverage
+        (гейт 2: всі 9 сторінок в індексі 14+ днів)?"
+```
+
+The plugin is a proactive assistant, not an obedient command: it notices
+waiting periods, verification windows, and "check back in N weeks" moments
+that emerge from the work itself.
+
 Etiquette rules (encoded in the skill, non-negotiable):
-- Offer **once** per distinct deadline. Declined → logged, never re-offered.
+- Trigger on **concrete future dates and checkpoints from either side of the
+  conversation** — the user's words or Claude's own analysis. Never on
+  incidental dates ("у 2024 році цей API змінився").
+- Offer **once** per distinct deadline. The user's answer is nuanced, and the
+  skill honors the nuance:
+  - **"так"** → created.
+  - **"ні"** → this specific deadline is muted — but recorded in the journal
+    and reversible at any time via `/notifyme:reminders`. Declining one
+    deadline never mutes other or future deadlines.
+  - **"поки ні" / "спитай ближче до дати"** → deferred: journal stores a
+    re-offer date, and Claude brings it up again when that date arrives.
 - Offer at a natural pause, never interrupting the primary task mid-flow.
-- Offer only for **concrete, future, user-owned** deadlines ("здати до 26-го"),
-  never for incidental dates ("у 2024 році цей API змінився").
-- Propose exactly one sensible option (date + time), not a menu. The user
-  adjusts in one breath if needed.
-- If the user mentions a deadline that already has a NotifyMe reminder
-  (per local log), don't re-offer; confirm it exists if relevant.
+- Propose the **meaningful date** — the decision point, not the mention date
+  (for "14+ днів від 10.07" that's 24.07, not today). Exactly one sensible
+  option, not a menu. The user adjusts in one breath if needed.
+- If the deadline is already tracked (per journal), don't re-offer; confirm
+  it exists if relevant.
 
 ### 4.2 First use = onboarding
 
@@ -79,19 +106,28 @@ There is no setup wizard. On the very first accepted reminder:
 4. One extra sentence, first time only: *"Керувати нагадуваннями можна у
    застосунку Нагадування — список 'Claude Projects'."*
 
-Failure paths are first-class (see §9): permission denied and missing iCloud
+Failure paths are first-class (see §10): permission denied and missing iCloud
 each produce one clear sentence and one fix.
 
 ### 4.3 On demand
 
 - `/notifyme:remind` — create a reminder explicitly ("нагадай мені 3 серпня
   про реліз").
-- `/notifyme:reminders` — list pending NotifyMe reminders (all projects or
-  current project), cancel by name.
-- `/notifyme:doctor` — self-diagnostics (§8).
+- `/notifyme:reminders` — **the journal**: one command to see and manage the
+  full decision history, filterable by project:
+  - active reminders (pending, with dates)
+  - fired/past ones (with cleanup offer)
+  - declined offers — each reversible ("а постав все-таки оте про гейт")
+  - deferred offers (with their re-offer dates)
+  Natural-language actions: cancel, re-enable a declined one, defer, update a
+  date, clean history. Every "так" and "ні" the user ever gave is reviewable
+  and changeable here — nothing is final.
+- `/notifyme:doctor` — self-diagnostics (§9).
 
-Editing and completing reminders is deliberately **not** duplicated here — the
-Reminders app is the management UI (native > reimplemented).
+Editing reminder text/time and completing them is deliberately **not**
+duplicated here — the Reminders app is the management UI (native >
+reimplemented). The journal manages *decisions*; Reminders manages
+*notifications*.
 
 ## 5. Architecture
 
@@ -125,12 +161,15 @@ notifyme/                          (repo root = the plugin)
   (ISO 8601 datetime, non-empty title), routes to the configured adapter,
   maintains the local log. Testable standalone without Claude.
 - **adapters/apple-reminders.sh** — all AppleScript lives here and nowhere
-  else. Implements the adapter contract (§11). Replaceable in v2.
-- **hooks/session-start.sh** — one sentence injected per session:
-  *"NotifyMe is installed: when the user mentions a concrete future deadline
-  for their work, offer once to set a phone reminder (notifyme:remind)."*
-  This is what makes every project — old or new — deadline-aware, at a cost of
-  ~30 tokens per session.
+  else. Implements the adapter contract (§12). Replaceable in v2.
+- **hooks/session-start.sh** — injects one sentence per session:
+  *"NotifyMe is installed: when a concrete future deadline or checkpoint
+  emerges — from the user's words or from your own analysis and plans — offer
+  once to set a phone reminder (notifyme:remind)."*
+  Additionally, it checks `journal.jsonl` for deferred offers whose
+  `reoffer_at` has arrived and, only then, appends one line per due deferral
+  so Claude re-offers it (§8.5). Cost: ~35 tokens per session, plus a line
+  per due deferral (rare).
 
 ### 5.2 Data flow (create)
 
@@ -170,16 +209,64 @@ conversation → skill (parses intent+date, gets consent)
 
 - `config.json` — `{ "list_name": "Claude Projects", "default_hour": 9 }`.
   Defaults work for everyone; the file exists for the few who care.
-- `reminders.jsonl` — one line per created reminder:
-  `{id, reminder_id, title, due, project, created_at}`. Powers `/reminders`,
-  dedup, and doctor. Append-only; cancelled entries get `"cancelled": true`.
-- `declined.jsonl` — deadlines the user declined `{project, title_hash, due}`,
-  so the offer is never repeated. Nothing sensitive stored (hash, not text).
+- `journal.jsonl` — the single source of decision history, one line per
+  event, append-only:
+  `{id, status, title, due, project, context, reminder_id?, reoffer_at?,
+  created_at}` where `status` ∈ `accepted | declined | deferred | cancelled |
+  done`. A status change appends a new line with the same `id` (last line
+  wins). This one file powers the `/reminders` journal, dedup, deferred
+  re-offers, and doctor. Titles are stored as plain text — the file is local
+  and this is what makes declined offers reviewable and reversible.
 
-The log is a cache, not the source of truth — Reminders is. If they disagree
-(user deleted a reminder in the app), `/reminders` reconciles silently.
+The journal records *decisions*; Reminders remains the source of truth for
+*notifications*. If they disagree (user deleted or completed a reminder in
+the app), `/reminders` reconciles silently (§8).
 
-## 8. Self-diagnostics — `/notifyme:doctor`
+## 8. Reminder lifecycle & smart behavior
+
+### 8.1 One-shot by design, recurring by handoff
+
+All v1 reminders are one-shot. For periodic needs ("заглядати в GSC раз на
+кілька днів") the plugin does **not** spam interval reminders — it sets one
+reminder at the next *decision point* (the earliest date when checking becomes
+meaningful). If the user wants true recurrence, Claude says so honestly:
+AppleScript exposes no recurrence, but adding a repeat in the Reminders app is
+one tap — and the reminder NotifyMe just created is the thing to tap on.
+
+### 8.2 Context-rich by default
+
+A notification that fires three weeks later must be self-explanatory. The
+reminder **body** carries the "why" and the success criteria, e.g.:
+
+> Гейт 2: перевірити GSC Coverage — всі 9 пілотних сторінок в індексі
+> 14+ днів поспіль. Проєкт: MedSearch — created by NotifyMe
+
+Title stays short (what to do); body answers "а це взагалі про що?".
+
+### 8.3 After firing
+
+Native Reminders behavior applies: the reminder stays visible (overdue) until
+the user completes or snoozes it on any device. NotifyMe does not interfere.
+On the next `/reminders` (or any create flow), the journal reconciles:
+completed in the app → `done`; deleted in the app → `cancelled`; past-due
+entries are flagged and a cleanup is *offered* ("3 нагадування вже в минулому
+— прибрати з журналу?"). NotifyMe never deletes anything from Reminders on
+its own.
+
+### 8.4 Stale awareness
+
+If the conversation reveals that a tracked reminder became irrelevant — "гейт
+2 ми вже пройшли", "цей реліз скасували" — Claude offers to mark it done or
+cancel it. Offer, never auto-delete: the same consent rule as creation.
+
+### 8.5 Deferred offers
+
+A "спитай ближче до дати" answer stores `reoffer_at` in the journal. The
+SessionStart hook surfaces due deferrals: when a session starts and a
+deferred offer's date has arrived, Claude re-offers it once at the first
+natural pause. Deferring again is fine; the user steers.
+
+## 9. Self-diagnostics — `/notifyme:doctor`
 
 Runs seven checks, prints an Apple-style report (✓/✗ + one-line fix each):
 
@@ -196,7 +283,7 @@ Runs seven checks, prints an Apple-style report (✓/✗ + one-line fix each):
    print the `/plugin` update hint. This is the plugin's **only** network
    call, and only inside doctor.
 
-## 9. Failure modes
+## 10. Failure modes
 
 | Failure | Detection | User sees |
 |---|---|---|
@@ -210,7 +297,7 @@ Runs seven checks, prints an Apple-style report (✓/✗ + one-line fix each):
 Rule: every error message ≤ 2 sentences, names the fix, never shows a stack
 trace or AppleScript error text.
 
-## 10. Privacy
+## 11. Privacy
 
 - No telemetry, no analytics, no automatic network calls.
 - Reminder content lives in the user's Reminders (Apple's iCloud E2E rules
@@ -219,7 +306,7 @@ trace or AppleScript error text.
   releases URL and sends nothing but the request itself.
 - Stated in README verbatim.
 
-## 11. v2 readiness — the adapter contract
+## 12. v2 readiness — the adapter contract
 
 Every adapter is one executable implementing:
 
@@ -238,17 +325,18 @@ notifyme.sh changes — that is the test of the boundary.
 Update path: plugin updates arrive via the standard `/plugin` marketplace
 mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
 
-## 12. Deliberately out of scope (v1)
+## 13. Deliberately out of scope (v1)
 
 - Scanning project files for deadlines (reactive-only; scanning = false
   positives = broken trust)
-- Recurring reminders (AppleScript exposes no recurrence; user can add
-  recurrence in the Reminders app afterward)
-- Editing reminders from Claude (Reminders app is the editor)
+- Recurring reminders (AppleScript exposes no recurrence; the decision-point
+  strategy + one-tap repeat handoff covers this — see §8.1)
+- Editing reminder text/time from Claude (Reminders app is the editor; the
+  journal §4.3 manages decisions, not notification content)
 - Calendar events, non-Apple platforms, teams/sharing
 - Any hosted/shared backend
 
-## 13. Testing & release QA
+## 14. Testing & release QA
 
 - `scripts/notifyme.sh` self-check mode: `notifyme.sh selftest` — runs the
   doctor round-trip against a `Claude Projects Test` list and cleans up.
@@ -263,11 +351,16 @@ mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
   - iPhone receives and fires the notification (the actual product promise)
 - README includes a 30-second demo GIF of the core loop.
 
-## 14. Success criteria
+## 15. Success criteria
 
 1. A user who installs the plugin and never reads any docs gets offered a
-   reminder the first time they mention a deadline — and it fires on their
-   iPhone. Zero configuration steps in between.
-2. `/notifyme:doctor` on a healthy system: 7/7 green in under 15 seconds.
-3. Session overhead: ≤ 40 tokens (one hook sentence).
-4. Every failure mode in §9 produces its exact message — verified manually.
+   reminder the first time a deadline appears — and it fires on their iPhone.
+   Zero configuration steps in between.
+2. The offer also triggers on **Claude-originated** checkpoints: a session
+   like the "GSC gate" example (§4.1) produces an offer with the correct
+   decision-point date, without the user mentioning reminders at all.
+3. Every "так"/"ні"/"пізніше" the user ever gave is visible and reversible
+   through one command (`/notifyme:reminders`).
+4. `/notifyme:doctor` on a healthy system: 7/7 green in under 15 seconds.
+5. Session overhead: ≤ 40 tokens (one hook sentence).
+6. Every failure mode in §10 produces its exact message — verified manually.
