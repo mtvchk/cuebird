@@ -122,6 +122,10 @@ each produce one clear sentence and one fix.
   Natural-language actions: cancel, re-enable a declined one, defer, update a
   date, clean history. Every "так" and "ні" the user ever gave is reviewable
   and changeable here — nothing is final.
+- `/notifyme:resume` — pick up where a fired reminder left off: matches the
+  user's phrase against the journal, loads the stored continuation context,
+  and carries on (§8.6). Also triggers naturally — "мені прийшло нагадування
+  про гейт 2" works without the slash command.
 - `/notifyme:doctor` — self-diagnostics (§9).
 
 Editing reminder text/time and completing them is deliberately **not**
@@ -138,7 +142,8 @@ notifyme/                          (repo root = the plugin)
 │   └── marketplace.json           single-plugin marketplace for /plugin install
 ├── skills/
 │   ├── remind/SKILL.md            create-reminder flow + etiquette rules
-│   ├── reminders/SKILL.md         list / cancel
+│   ├── reminders/SKILL.md         the journal: list / manage decisions
+│   ├── resume/SKILL.md            continue from a fired reminder (§8.6)
 │   └── doctor/SKILL.md            diagnostics + update check
 ├── hooks/
 │   ├── hooks.json                 registers SessionStart hook
@@ -165,10 +170,11 @@ notifyme/                          (repo root = the plugin)
 - **hooks/session-start.sh** — injects one sentence per session:
   *"NotifyMe is installed: when a concrete future deadline or checkpoint
   emerges — from the user's words or from your own analysis and plans — offer
-  once to set a phone reminder (notifyme:remind)."*
+  once to set a phone reminder (notifyme:remind). If the user mentions a
+  reminder that fired, resume it via notifyme:resume."*
   Additionally, it checks `journal.jsonl` for deferred offers whose
   `reoffer_at` has arrived and, only then, appends one line per due deferral
-  so Claude re-offers it (§8.5). Cost: ~35 tokens per session, plus a line
+  so Claude re-offers it (§8.5). Cost: ~45 tokens per session, plus a line
   per due deferral (rare).
 
 ### 5.2 Data flow (create)
@@ -211,12 +217,13 @@ conversation → skill (parses intent+date, gets consent)
   Defaults work for everyone; the file exists for the few who care.
 - `journal.jsonl` — the single source of decision history, one line per
   event, append-only:
-  `{id, status, title, due, project, context, reminder_id?, reoffer_at?,
-  created_at}` where `status` ∈ `accepted | declined | deferred | cancelled |
-  done`. A status change appends a new line with the same `id` (last line
-  wins). This one file powers the `/reminders` journal, dedup, deferred
-  re-offers, and doctor. Titles are stored as plain text — the file is local
-  and this is what makes declined offers reviewable and reversible.
+  `{id, status, title, due, project, project_path, context, resume_prompt,
+  reminder_id?, reoffer_at?, created_at}` where `status` ∈ `accepted |
+  declined | deferred | cancelled | done`. A status change appends a new line
+  with the same `id` (last line wins). This one file powers the `/reminders`
+  journal, dedup, deferred re-offers, the resume flow (§8.6), and doctor.
+  Titles and context are stored as plain text — the file is local, and this
+  is what makes declined offers reversible and fired reminders resumable.
 
 The journal records *decisions*; Reminders remains the source of truth for
 *notifications*. If they disagree (user deleted or completed a reminder in
@@ -235,13 +242,44 @@ one tap — and the reminder NotifyMe just created is the thing to tap on.
 
 ### 8.2 Context-rich by default
 
-A notification that fires three weeks later must be self-explanatory. The
-reminder **body** carries the "why" and the success criteria, e.g.:
+A notification that fires three weeks later must be self-explanatory to a
+person who has completely forgotten the context. Title stays short (what to
+do); the **body** follows a fixed template, plain language, no jargon:
 
-> Гейт 2: перевірити GSC Coverage — всі 9 пілотних сторінок в індексі
-> 14+ днів поспіль. Проєкт: MedSearch — created by NotifyMe
+```
+Що: перевірити, чи пройдено гейт 2 (індексація в Google)
+Проєкт: MedSearch — пошук лікарів у Польщі (~/Projects/medsearch)
+Критерій: усі 9 пілотних сторінок в індексі GSC 14+ днів поспіль
+Далі: якщо так — розгортаємо хаб-сторінки (етап 2 SEO)
 
-Title stays short (what to do); body answers "а це взагалі про що?".
+▶ Відкрий Claude Code у проєкті й скажи: «нагадування: гейт 2»
+
+— NotifyMe
+```
+
+Four lines answer: what, where (which project, in human words), how to tell
+success, and what happens next. The last line is the way back in (§8.6).
+
+### 8.6 Resume: from notification back into a session
+
+The journal is the deep link. At creation time, Claude writes into the
+journal entry a **self-contained `resume_prompt`** — everything a fresh
+session needs: project path, the state of things when the reminder was set,
+what exactly to check, and the planned next steps.
+
+When the user returns — "мені прийшло нагадування про гейт 2" or
+`/notifyme:resume` — Claude matches the phrase against the journal, loads the
+`resume_prompt`, and continues as if the three-week gap never happened: it
+re-checks the current state, explains where things stand, and proceeds with
+the plan.
+
+Cross-device niceness, the Apple way: the reminder body's «скажи: …» phrase
+can be copied on the iPhone and pasted on the Mac via Universal Clipboard —
+no retyping.
+
+True URL deep links (a custom scheme or claude.ai handoff) are a v2
+exploration — no public, reliable mechanism exists today, and the
+journal-based resume already delivers the experience natively.
 
 ### 8.3 After firing
 
@@ -361,6 +399,10 @@ mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
    decision-point date, without the user mentioning reminders at all.
 3. Every "так"/"ні"/"пізніше" the user ever gave is visible and reversible
    through one command (`/notifyme:reminders`).
-4. `/notifyme:doctor` on a healthy system: 7/7 green in under 15 seconds.
-5. Session overhead: ≤ 40 tokens (one hook sentence).
-6. Every failure mode in §10 produces its exact message — verified manually.
+4. **The loop closes:** a fired notification, read on the phone weeks later,
+   is fully self-explanatory (what/where/criterion/next) — and saying
+   «нагадування: <тема>» in any Claude Code session restores the full context
+   and continues the work.
+5. `/notifyme:doctor` on a healthy system: 7/7 green in under 15 seconds.
+6. Session overhead: ≤ 50 tokens (one hook sentence).
+7. Every failure mode in §10 produces its exact message — verified manually.
