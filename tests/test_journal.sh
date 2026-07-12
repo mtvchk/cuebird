@@ -22,4 +22,15 @@ out=$("$N" list declined); echo "$out" | grep -q '"skip me"' && fail "transition
 
 cnt=$("$N" prune deferred) || fail "prune"
 out=$("$N" list deferred); echo "$out" | grep -q '"ask me later"' && fail "prune left entry"
+
+# exit-code contract for degenerate inputs
+"$N" log "" "t" - >/dev/null 2>&1; [ $? -eq 2 ] || fail "empty status must exit 2"
+"$N" log accepted "" - >/dev/null 2>&1; [ $? -eq 2 ] || fail "empty title must exit 2"
+# concurrent appends must not lose entries
+CONC_DIR=$(mktemp -d)
+for i in $(seq 1 20); do NOTIFYME_STATE_DIR="$CONC_DIR" "$N" log declined "conc $i" - >/dev/null & done
+wait
+cnt=$(wc -l < "$CONC_DIR/journal.jsonl" | tr -d ' ')
+[ "$cnt" -eq 20 ] || fail "concurrent appends lost entries: $cnt/20"
+
 echo "ALL JOURNAL TESTS PASSED"

@@ -40,11 +40,12 @@ function run(argv) {
       created_at: new Date().toISOString()
     };
     Object.keys(e).forEach(k => { if (e[k] === '') delete e[k]; });
-    const existing = readLines(path);
-    existing.push(e);
-    const body = existing.map(l => JSON.stringify(l)).join('\n') + (existing.length ? '\n' : '');
-    $.NSString.alloc.initWithUTF8String(body).writeToFileAtomicallyEncodingError(path, true, $.NSUTF8StringEncoding, null);
-    return e.id;
+    // Build the line here (needs Date/random/env), but do NOT write it from JXA:
+    // NSFileHandle seekToEndOfFile+writeData is a TOCTOU race across processes
+    // (no O_APPEND at the fd level), so concurrent invocations still clobber each
+    // other's entries. The actual disk write is done by the bash caller via `>>`,
+    // which opens O_APPEND and gets kernel-serialized atomic appends instead.
+    return e.id + '\n' + JSON.stringify(e);
   }
   const states = lastState(readLines(path));
   if (mode === 'list') {
@@ -70,6 +71,7 @@ function run(argv) {
     const drop = new Set(states.filter(e => e.status === argv[2]).map(e => e.id));
     const kept = readLines(path).filter(e => !drop.has(e.id));
     const body = kept.map(e => JSON.stringify(e)).join('\n') + (kept.length ? '\n' : '');
+    // prune keeps atomic rewrite: rare, user-invoked — acceptable race window
     $.NSString.alloc.initWithUTF8String(body).writeToFileAtomicallyEncodingError(path, true, $.NSUTF8StringEncoding, null);
     return String(drop.size);
   }
@@ -101,15 +103,18 @@ case "$cmd" in
     echo "TODO Task 6" >&2; exit 1
     ;;
   log) # <status> <title> <due-or->
-    st="${1:?status}"; ti="${2:?title}"; du="${3:--}"
+    st="${1:-}"; ti="${2:-}"; du="${3:--}"
+    [ -n "$st" ] || die2 "missing status"
     case "$st" in accepted|declined|deferred|cancelled|done) ;; *) die2 "bad status: $st";; esac
     [ -n "$ti" ] || die2 "empty title"
-    jxa_journal append "$st" "$ti" "$du"
-    echo
+    out=$(jxa_journal append "$st" "$ti" "$du") || exit 2
+    id="${out%%$'\n'*}"
+    line="${out#*$'\n'}"
+    printf '%s\n' "$line" >> "$JOURNAL"
+    echo "$id"
     ;;
   list)
     jxa_journal list "${1:-all}" "${2:-}"
-    echo
     ;;
   get)
     out=$(jxa_journal get "${1:?id}")
@@ -118,11 +123,9 @@ case "$cmd" in
     ;;
   due-deferrals)
     jxa_journal due
-    echo
     ;;
   prune)
     jxa_journal prune "${1:?status}"
-    echo
     ;;
   health)
     "$ADAPTER" health
