@@ -75,6 +75,24 @@ The plugin is a proactive assistant, not an obedient command: it notices
 waiting periods, verification windows, and "check back in N weeks" moments
 that emerge from the work itself.
 
+**Condition-based waits (no explicit date):** when the work produces a
+waiting condition with no stated timeframe — "тепер треба почекати, поки
+набереться 10 відвідувачів" — Claude estimates internally how long that
+realistically takes given the current context, and offers a **check-in**
+reminder at the estimated date, honestly framed as an estimate:
+
+```
+Claude: "...тепер лишається чекати, поки набереться ~10 відвідувачів.
+        За моєю оцінкою, з поточним трафіком це десь 1–2 тижні.
+        Поставити нагадування на 26 липня — перевірити відвідуваність?"
+```
+
+A condition check-in differs from a deadline: the reminder body and
+resume_prompt record the **condition** (what to check and the threshold),
+not just the date. On resume, Claude verifies the condition first — if it
+is not yet met, it says so plainly and offers to re-arm the reminder for
+another estimated period rather than pretending the wait is over.
+
 Etiquette rules (encoded in the skill, non-negotiable):
 - Trigger on **concrete future dates and checkpoints from either side of the
   conversation** — the user's words or Claude's own analysis. Never on

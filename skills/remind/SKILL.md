@@ -1,6 +1,6 @@
 ---
 name: remind
-description: Set a phone reminder via Apple Reminders. Use PROACTIVELY when a concrete future deadline, checkpoint, waiting period, or "check back in N days/weeks" moment emerges in conversation — from the user's words OR from your own analysis and plans. Also when the user explicitly asks to be reminded of something. Do not trigger for incidental/past dates with no action attached.
+description: Set a phone reminder via Apple Reminders. Use PROACTIVELY when a concrete future deadline, checkpoint, waiting period, or "check back in N days/weeks" moment emerges in conversation — from the user's words OR from your own analysis and plans. Also when work enters a waiting period whose duration you can estimate (a condition with no stated date — estimate the timeframe from context). Also when the user explicitly asks to be reminded of something. Do not trigger for incidental/past dates with no action attached.
 ---
 
 # NotifyMe: remind
@@ -30,6 +30,25 @@ Resolve `$NOTIFYME` using these methods, in order — never guess beyond them:
   conclusions ("раніше кінця липня перевіряти немає сенсу" → offer a reminder
   for the decision point). Never for incidental dates ("у 2024 цей API
   змінився").
+- **Condition-based waits** (no stated date): trigger when a genuine project
+  checkpoint hides behind a condition rather than a date — "почекати, поки
+  набереться 10 відвідувачів" has no timeframe, but it's still a real
+  checkpoint. Estimate the realistic timeframe yourself from whatever the
+  conversation actually gives you — current traffic/cadence, external SLAs,
+  historical rate, anything on the table — and offer with the estimate
+  stated honestly as an estimate AND the concrete date it maps to, e.g. «За
+  моєю оцінкою, з поточним трафіком це десь 1–2 тижні. Поставити нагадування
+  на 26 липня — перевірити відвідуваність?». This reminder is a check-in, not
+  a deadline: the title says what to check («перевірити відвідуваність»),
+  the body's `Критерій` line carries the threshold condition itself («10+
+  унікальних відвідувачів»), and `Далі` says what happens next if the
+  condition is met vs. still unmet. The `resume_prompt` must instruct
+  future-you to verify the condition FIRST on resume and, if it's still
+  unmet, re-arm for another estimated period — never assume the wait is over
+  just because the date arrived. If you genuinely have zero signal to
+  estimate from, don't invent a date — ask the user one short question
+  instead (e.g. «Яка зараз приблизно відвідуваність на день, щоб оцінити
+  термін?») and offer the reminder once they answer.
 - Offer ONCE per distinct deadline, at a natural pause — never interrupt the
   primary task mid-flow. One short sentence, e.g.:
   «До речі — поставити нагадування на 24 липня перевірити GSC Coverage?

@@ -92,6 +92,21 @@ escaped literal `'`, reopen the quote).
    have changed since it was written — files may have moved on, the
    checkpoint may already be past), then explain where things stand in
    plain language, then continue the planned next steps.
+   - **Condition check-in**: if `resume_prompt`/`context` describes a
+     threshold condition (a `Критерій` line or equivalent — "10+ унікальних
+     відвідувачів", "9 сторінок в індексі 14+ днів") rather than a plain
+     deadline, check that condition FIRST, against current reality, before
+     anything else in `resume_prompt`.
+     - **Met** → say so plainly, then proceed with the planned next steps
+       from `resume_prompt` and continue to step 5 (offer complete).
+     - **Unmet** → report the actual current value honestly (e.g. «Зараз
+       відвідуваність ~4 на день, поки не 10» — never vague, never "ще не
+       готово" without the number) and offer to re-arm: propose a fresh
+       estimated date per skills/remind's condition-based-waits guidance
+       (re-estimate from current pace, state it as an estimate, propose the
+       one concrete date), wait for yes/no/defer, and record the answer
+       exactly as skills/remind's "Recording the user's answer" section
+       specifies. Never say or imply the wait is over when it isn't.
 
 5. Close the loop:
    - If the checkpoint is now passed/irrelevant, offer
