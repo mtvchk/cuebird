@@ -26,7 +26,9 @@ journal_append() { # $1: the JSON line to append
     sleep 0.05
   done
   printf '%s\n' "$1" >> "$JOURNAL"
+  local rc=$?
   rmdir "$lockdir"
+  return $rc
 }
 
 jxa_journal() { # $1: mode (append|list|get|due|prune), then mode args; env passes fields
@@ -128,15 +130,20 @@ case "$cmd" in
     out=$(NOTIFYME_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") || exit 2
     nmid="${out%%$'\n'*}"
     line="${out#*$'\n'}"
-    journal_append "$line"
-    printf '{"ok":true,"id":"%s","reminder_id":"%s"}\n' "$nmid" "$rid"
+    journal_append "$line" || { echo "journal write failed (reminder created: $rid)" >&2; exit 12; }
+    "$OSA" -l JavaScript -e 'function run(a){return JSON.stringify({ok:true,id:a[0],reminder_id:a[1]})}' "$nmid" "$rid"
     ;;
   cancel|complete)
     nmid="${1:-}"; [ -n "$nmid" ] || die2 "missing id"
     entry=$(jxa_journal get "$nmid"); [ "$entry" = "__NOTFOUND__" ] && exit 3
     rid=$(osa_field "$entry" reminder_id)
     if [ -n "$rid" ]; then
-      if [ "$cmd" = cancel ]; then "$ADAPTER" delete "$rid" || true; else "$ADAPTER" complete "$rid" || true; fi
+      st=$("$ADAPTER" status "$rid" 2>/dev/null) || st="missing"
+      if [ "$st" != "missing" ]; then
+        if [ "$cmd" = cancel ]; then "$ADAPTER" delete "$rid" || exit $?
+        else "$ADAPTER" complete "$rid" || exit $?; fi
+      fi
+      # missing → nothing to do in Reminders; journaling terminal state below IS the reconcile
     fi
     newst=$([ "$cmd" = cancel ] && echo cancelled || echo done)
     out=$(NOTIFYME_ID="$nmid" jxa_journal append "$newst" "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || exit 2
@@ -164,12 +171,14 @@ case "$cmd" in
         st=$("$ADAPTER" status "$rid" 2>/dev/null || echo pending)
         case "$st" in
           completed)
-            out=$(NOTIFYME_ID="$eid" jxa_journal append done "$(osa_field "$entry" title)" "$(osa_field "$entry" due)")
-            journal_append "${out#*$'\n'}"
+            out=$(NOTIFYME_ID="$eid" jxa_journal append done "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
+            line="${out#*$'\n'}"
+            [ -n "$line" ] && journal_append "$line"
             ;;
           missing)
-            out=$(NOTIFYME_ID="$eid" jxa_journal append cancelled "$(osa_field "$entry" title)" "$(osa_field "$entry" due)")
-            journal_append "${out#*$'\n'}"
+            out=$(NOTIFYME_ID="$eid" jxa_journal append cancelled "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
+            line="${out#*$'\n'}"
+            [ -n "$line" ] && journal_append "$line"
             ;;
         esac
       done

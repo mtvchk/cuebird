@@ -28,6 +28,14 @@ nmid2=$(echo "$out2" | sed 's/.*"id":"\([^"]*\)".*/\1/')
 "$N" cancel "$nmid2" || fail "cancel"
 "$N" get "$nmid2" | grep -q '"cancelled"' || fail "cancel not journaled"
 
+# reconcile: reminder removed directly in Reminders (not via cancel/complete) → missing → reconcile marks cancelled
+out3=$("$N" add "$DUE" "третє нагадування") || fail "third add"
+nmid3=$(echo "$out3" | sed 's/.*"id":"\([^"]*\)".*/\1/')
+rid3=$(echo  "$out3" | sed 's/.*"reminder_id":"\([^"]*\)".*/\1/')
+"$PWD/tests/mock-adapter.sh" delete "$rid3"
+"$N" list active | grep -q "$nmid3" && fail "reconcile kept missing entry active"
+"$N" get "$nmid3" | grep -q '"cancelled"' || fail "reconcile did not journal cancelled for missing reminder"
+
 # exit-code contract for degenerate inputs
 "$N" cancel >/dev/null 2>&1; [ $? -eq 2 ] || fail "cancel without id must exit 2"
 "$N" complete >/dev/null 2>&1; [ $? -eq 2 ] || fail "complete without id must exit 2"
