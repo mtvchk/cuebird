@@ -20,6 +20,9 @@ validate_due() { # $1: YYYY-MM-DDTHH:MM (local); dies with exit 2, else echoes y
   local y=${BASH_REMATCH[1]} m=${BASH_REMATCH[2]} d=${BASH_REMATCH[3]} H=${BASH_REMATCH[4]} M=${BASH_REMATCH[5]}
   local epoch
   epoch=$(date -j -f "%Y-%m-%dT%H:%M" "$1" +%s 2>/dev/null) || die2 "impossible date: '$1'"
+  local roundtrip
+  roundtrip=$(date -j -f "%Y-%m-%dT%H:%M" "$1" "+%Y-%m-%dT%H:%M" 2>/dev/null) || die2 "impossible date: '$1'"
+  [ "$roundtrip" = "$1" ] || die2 "impossible date: '$1' (did you mean $roundtrip?)"
   [ "$epoch" -gt "$(date +%s)" ] || die2 "date is in the past: '$1'"
   echo "$y $m $d $H $M"
 }
