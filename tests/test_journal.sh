@@ -33,4 +33,20 @@ wait
 cnt=$(wc -l < "$CONC_DIR/journal.jsonl" | tr -d ' ')
 [ "$cnt" -eq 20 ] || fail "concurrent appends lost entries: $cnt/20"
 
+# realistic-payload concurrency: 4KB resume prompts must not tear
+BIG=$(head -c 4096 /dev/zero | tr '\0' 'x')
+CONC2=$(mktemp -d)
+for i in $(seq 1 40); do NOTIFYME_STATE_DIR="$CONC2" NOTIFYME_RESUME_PROMPT="$BIG" "$N" log declined "big $i" - >/dev/null & done
+wait
+cnt2=$(NOTIFYME_STATE_DIR="$CONC2" "$N" list declined | wc -l | tr -d ' ')
+[ "$cnt2" -eq 40 ] || fail "4KB concurrent appends torn/lost: $cnt2/40"
+# malformed line must not poison the journal
+echo '{broken json' >> "$CONC2/journal.jsonl"
+NOTIFYME_STATE_DIR="$CONC2" "$N" list declined | wc -l | grep -q '40' || fail "malformed line poisoned list"
+# degenerate args
+"$N" get >/dev/null 2>&1; [ $? -eq 2 ] || fail "get without id must exit 2"
+"$N" prune >/dev/null 2>&1; [ $? -eq 2 ] || fail "prune without status must exit 2"
+# due-deferrals empty → zero bytes
+DD=$(mktemp -d); [ -z "$(NOTIFYME_STATE_DIR="$DD" "$N" due-deferrals)" ] || fail "empty due-deferrals must print nothing"
+
 echo "ALL JOURNAL TESTS PASSED"

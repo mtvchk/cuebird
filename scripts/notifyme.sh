@@ -14,13 +14,32 @@ touch "$JOURNAL"
 
 die2() { echo "$1" >&2; exit 2; }
 
+journal_append() { # $1: the JSON line to append
+  # mkdir lock: bash printf may split >2KB lines into multiple write(2)s; O_APPEND alone is not enough
+  local lockdir="$STATE_DIR/.journal.lock" i=0
+  until mkdir "$lockdir" 2>/dev/null; do
+    i=$((i+1))
+    if [ "$i" -ge 100 ]; then  # ~5s: steal stale lock (crashed holder)
+      rmdir "$lockdir" 2>/dev/null || true
+      i=0
+    fi
+    sleep 0.05
+  done
+  printf '%s\n' "$1" >> "$JOURNAL"
+  rmdir "$lockdir"
+}
+
 jxa_journal() { # $1: mode (append|list|get|due|prune), then mode args; env passes fields
   "$OSA" -l JavaScript - "$JOURNAL" "$@" <<'EOF'
 ObjC.import('Foundation');
 function readLines(p) {
   const s = $.NSString.stringWithContentsOfFileEncodingError(p, $.NSUTF8StringEncoding, null);
   if (!s || s.isNil && s.isNil()) return [];
-  return ObjC.unwrap(s).split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
+  const out = [];
+  ObjC.unwrap(s).split('\n').filter(l => l.trim()).forEach(l => {
+    try { out.push(JSON.parse(l)); } catch (e) {}
+  });
+  return out;
 }
 function lastState(entries) {
   const m = {};
@@ -43,8 +62,9 @@ function run(argv) {
     // Build the line here (needs Date/random/env), but do NOT write it from JXA:
     // NSFileHandle seekToEndOfFile+writeData is a TOCTOU race across processes
     // (no O_APPEND at the fd level), so concurrent invocations still clobber each
-    // other's entries. The actual disk write is done by the bash caller via `>>`,
-    // which opens O_APPEND and gets kernel-serialized atomic appends instead.
+    // other's entries. The actual disk write is done by the bash caller via
+    // journal_append(), which guards the O_APPEND write with an mkdir lock (see
+    // that function for why O_APPEND alone isn't sufficient for multi-KB lines).
     return e.id + '\n' + JSON.stringify(e);
   }
   const states = lastState(readLines(path));
@@ -110,22 +130,26 @@ case "$cmd" in
     out=$(jxa_journal append "$st" "$ti" "$du") || exit 2
     id="${out%%$'\n'*}"
     line="${out#*$'\n'}"
-    printf '%s\n' "$line" >> "$JOURNAL"
+    journal_append "$line"
     echo "$id"
     ;;
   list)
     jxa_journal list "${1:-all}" "${2:-}"
     ;;
   get)
-    out=$(jxa_journal get "${1:?id}")
+    id="${1:-}"; [ -n "$id" ] || die2 "missing id"
+    out=$(jxa_journal get "$id")
     [ "$out" = "__NOTFOUND__" ] && exit 3
     echo "$out"
     ;;
   due-deferrals)
-    jxa_journal due
+    out=$(jxa_journal due)
+    [ -n "$out" ] && printf '%s\n' "$out"
+    exit 0
     ;;
   prune)
-    jxa_journal prune "${1:?status}"
+    st="${1:-}"; [ -n "$st" ] || die2 "missing status"
+    jxa_journal prune "$st"
     ;;
   health)
     "$ADAPTER" health
