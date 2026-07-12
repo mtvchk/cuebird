@@ -54,6 +54,84 @@ case "$cmd" in
     ensure_list "$acct"
     if [ "$flag" = "icloud" ]; then echo "ok $acct/$LIST"; else echo "ok-local $acct/$LIST"; fi
     ;;
+  add) # yyyy mm dd HH MM title body → prints reminder id
+    acct_info=$(resolve_account) || exit $?   # $(...) swallows exit codes — always guard
+    acct="${acct_info#*$'\t'}"
+    ensure_list "$acct"
+    rid=$(run_osa "$acct" "$LIST" "$1" "$2" "$3" "$4" "$5" "$6" "$7" <<'EOF'
+on run argv
+  set d to current date
+  set day of d to 1 -- avoid month-overflow while re-targeting
+  set year of d to (item 3 of argv) as integer
+  set month of d to (item 4 of argv) as integer
+  set day of d to (item 5 of argv) as integer
+  set time of d to ((item 6 of argv) as integer) * 3600 + ((item 7 of argv) as integer) * 60
+  tell application "Reminders"
+    tell list (item 2 of argv) of account (item 1 of argv)
+      set r to make new reminder with properties {name:(item 8 of argv), body:(item 9 of argv), remind me date:d}
+    end tell
+    return id of r
+  end tell
+end run
+EOF
+) || exit $?
+    # Verification (spec §6): read the reminder back before claiming success.
+    name=$(run_osa "$rid" <<'EOF'
+on run argv
+  tell application "Reminders" to return name of reminder id (item 1 of argv)
+end run
+EOF
+) || { echo "verify failed" >&2; exit 11; }
+    [ "$name" = "$6" ] || { echo "verify failed" >&2; exit 11; }
+    echo "$rid"
+    ;;
+  status) # <id> → pending|completed|missing
+    run_osa "$1" <<'EOF'
+on run argv
+  tell application "Reminders"
+    try
+      if completed of reminder id (item 1 of argv) then return "completed"
+      return "pending"
+    on error
+      return "missing"
+    end try
+  end tell
+end run
+EOF
+    echo ""
+    ;;
+  complete) # <id>
+    run_osa "$1" <<'EOF' >/dev/null
+on run argv
+  tell application "Reminders" to set completed of reminder id (item 1 of argv) to true
+end run
+EOF
+    ;;
+  delete) # <id>
+    run_osa "$1" <<'EOF' >/dev/null
+on run argv
+  tell application "Reminders" to delete reminder id (item 1 of argv)
+end run
+EOF
+    ;;
+  list) # id<TAB>title per pending reminder
+    acct_info=$(resolve_account) || exit $?
+    acct="${acct_info#*$'\t'}"
+    ensure_list "$acct"
+    run_osa "$acct" "$LIST" <<'EOF'
+on run argv
+  set out to ""
+  tell application "Reminders"
+    tell list (item 2 of argv) of account (item 1 of argv)
+      repeat with r in (every reminder whose completed is false)
+        set out to out & (id of r) & tab & (name of r) & linefeed
+      end repeat
+    end tell
+  end tell
+  return out
+end run
+EOF
+    ;;
   *)
     echo "unknown command: $cmd" >&2; exit 2 ;;
 esac
