@@ -12,6 +12,11 @@ mkdir -p "$STATE_DIR"
 [ -f "$STATE_DIR/config.json" ] || printf '{ "list_name": "Claude Projects", "default_hour": 9 }\n' > "$STATE_DIR/config.json"
 touch "$JOURNAL"
 
+if [ -z "${NOTIFYME_LIST:-}" ]; then
+  NOTIFYME_LIST=$("$OSA" -l JavaScript -e 'function run(a){try{return String(JSON.parse(a[0]).list_name||"Claude Projects")}catch(e){return "Claude Projects"}}' "$(cat "$STATE_DIR/config.json" 2>/dev/null || echo '{}')")
+  export NOTIFYME_LIST
+fi
+
 die2() { echo "$1" >&2; exit 2; }
 
 journal_append() { # $1: the JSON line to append

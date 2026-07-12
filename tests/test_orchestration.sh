@@ -51,4 +51,23 @@ rid3=$(echo  "$out3" | sed 's/.*"reminder_id":"\([^"]*\)".*/\1/')
 "$N" complete >/dev/null 2>&1; [ $? -eq 2 ] || fail "complete without id must exit 2"
 "$N" cancel "nm_nope" >/dev/null 2>&1; [ $? -eq 3 ] || fail "cancel on missing id must exit 3"
 
+# list_name from config.json is wired into NOTIFYME_LIST when the env var is unset
+lncfg_dir=$(mktemp -d)
+printf '{"list_name":"Custom List","default_hour":9}\n' > "$lncfg_dir/config.json"
+lncfg_seen=$(mktemp)
+lncfg_wrapper=$(mktemp)
+cat > "$lncfg_wrapper" <<EOF
+#!/bin/bash
+echo "\$NOTIFYME_LIST" >> "$lncfg_seen"
+exec "$PWD/tests/mock-adapter.sh" "\$@"
+EOF
+chmod +x "$lncfg_wrapper"
+(
+  unset NOTIFYME_LIST
+  NOTIFYME_STATE_DIR="$lncfg_dir" MOCK_DB=$(mktemp) NOTIFYME_ADAPTER="$lncfg_wrapper" \
+    "$N" add "$DUE" "list name test" >/dev/null
+) || fail "list_name test: add failed"
+grep -qx "Custom List" "$lncfg_seen" \
+  || fail "list_name from config.json not wired into NOTIFYME_LIST (got: $(cat "$lncfg_seen"))"
+
 echo "ALL ORCHESTRATION TESTS PASSED"

@@ -70,16 +70,15 @@ one fails.
 6. **State**: the journal is a cache; Reminders is the source of truth, so
    journal issues are ✓/⚠, never a hard ✗ on their own.
    ```bash
-   raw=$(grep -c . ~/.claude/notifyme/journal.jsonl 2>/dev/null || echo 0)
+   raw=$(grep -c . ~/.claude/notifyme/journal.jsonl 2>/dev/null); raw=${raw:-0}
    out=$("$NOTIFYME" list all); rc=$?
    ```
    Read `raw` (count of non-empty lines — historical blank lines are
    harmless and excluded) before looking at `rc`, in this order:
    - `raw` = 0 (journal never written, or empty) → ✓ regardless of `rc`.
-     Known quirk in the current CLI: `list all` exits 1 on a genuinely
-     empty journal even though nothing is wrong — dir writability was
-     already proven by `"$NOTIFYME" health`/`selftest` succeeding above, so
-     don't report this as a failure.
+     `list all` exits 0 on a genuinely empty journal, so `rc` should be 0
+     here too — dir writability was already proven by `"$NOTIFYME"
+     health`/`selftest` succeeding above.
    - `raw` > 0 and `rc` ≠ 0 → ✗fix: перевір `~/.claude/notifyme/` — я можу
      показати, що там.
    - `raw` > 0 and `rc` = 0 → ✓. Then run the direct parse-count one-liner

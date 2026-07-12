@@ -44,7 +44,7 @@ Resolve `$NOTIFYME` using these methods, in order — never guess beyond them:
   `~/.claude/notifyme/config.json` (`default_hour`, default 9 → 09:00). Read
   it with:
   ```bash
-  default_hour=$(osascript -l JavaScript -e 'function run(a){try{return String(JSON.parse(a[0]).default_hour||9)}catch(e){return "9"}}' "$(cat ~/.claude/notifyme/config.json 2>/dev/null || echo '{}')")
+  default_hour=$(osascript -l JavaScript -e 'function run(a){try{var v=JSON.parse(a[0]).default_hour;return String(typeof v==="number"?v:9)}catch(e){return "9"}}' "$(cat ~/.claude/notifyme/config.json 2>/dev/null || echo '{}')")
   ```
 - For periodic needs ("перевіряти раз на кілька днів") do NOT create several
   reminders — one reminder at the earliest meaningful date. If the user wants
