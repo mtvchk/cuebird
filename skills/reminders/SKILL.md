@@ -92,43 +92,29 @@ say so in one line instead of a table.
   user-facing messages as skills/remind's Failure table for exits 10/12 —
   don't invent new wording.
 - **Re-enable a declined/deferred/cancelled one**: run `"$NOTIFYME" get
-  '<id>'` and read whatever fields the printed JSON actually has. Be honest
-  about what survives:
-  - `title`, `due` (the original intended date), and `project` are reliably
-    present for declined/deferred entries.
-  - `project_path`, `context`, and `resume_prompt` were only ever captured
-    when the entry was originally created via `add` (i.e. it was once
-    `accepted`) — a plain declined/deferred entry never had them, and if the
-    entry was later `cancel`led or `complete`d, the CLI's state transition
-    drops those fields too (a `get` on a cancelled/done entry typically shows
-    only `id`, `status`, `title`, `due`, `created_at`). This is a real
-    limitation of the underlying journal, not something to paper over —
-    **never fabricate** a body/context/resume_prompt that isn't actually
-    there. If a field is missing, ask the user for it (or reconstruct it from
-    conversation context) exactly as if this were a brand-new offer.
-  - Agree the new date with the user, then create exactly per skills/remind's
-    Creating section (single-quoted env vars, first-use `health` check if
-    applicable, same confirmation line). The old entry stays in the journal
-    as history unchanged; the new one gets a new id from `add`.
-- **Change a deferral date**: re-arming reuses the same journal id, and the
-  underlying `log` call fully replaces the entry's latest state rather than
-  merging into it — so if you don't re-supply `NOTIFYME_PROJECT`, the
-  project field silently disappears from the entry (confirmed: it also then
-  drops out of any project-scoped `list`). Always run `get` first and carry
-  every present field forward:
-  ```bash
-  "$NOTIFYME" get '<id>'
-  ```
-  Read `project` (and `project_path`/`context`/`resume_prompt` if present —
-  rare for a deferred entry, see above) from that output, then:
+  '<id>'` and read whatever fields the printed JSON actually has. Status
+  transitions (`cancel`/`complete`/reconcile) carry every prior field forward
+  automatically, so `title`, `due`, `project`, `project_path`, `context`, and
+  `resume_prompt` all survive as long as they were captured at some point in
+  the entry's history. The one honest fallback: a genuinely old entry, or one
+  written by something other than this CLI, may still lack a field it never
+  had to begin with — if so, ask the user for it (or reconstruct it from
+  conversation context) rather than fabricating it.
+  Agree the new date with the user, then create exactly per skills/remind's
+  Creating section (single-quoted env vars, first-use `health` check if
+  applicable, same confirmation line). The old entry stays in the journal
+  as history unchanged; the new one gets a new id from `add`.
+- **Change a deferral date**: re-arming reuses the same journal id; fields
+  you don't re-supply (e.g. `NOTIFYME_PROJECT`) carry forward automatically
+  from the id's current state, so you only need to pass what's actually
+  changing:
   ```bash
   NOTIFYME_ID='<id>' \
   NOTIFYME_REOFFER_AT='<new-YYYY-MM-DDTHH:MM>' \
-  NOTIFYME_PROJECT='<project — only if get printed one, never invent it>' \
   "$NOTIFYME" log deferred '<title>' '<due>'
   ```
-  Use the same `<title>` and `<due>` the `get` call showed — don't rephrase
-  them. Acknowledge in one short sentence once done.
+  Use the same `<title>` and `<due>` a prior `get '<id>'` showed — don't
+  rephrase them. Acknowledge in one short sentence once done.
 - **Change an active reminder's date/text**: don't — there is no `edit`
   command. Say honestly that editing content lives in the Reminders app
   itself (one tap there), and offer cancel-then-recreate here if the user

@@ -52,14 +52,34 @@ function env(k) { const v = $.NSProcessInfo.processInfo.environment.objectForKey
 function run(argv) {
   const path = argv[0], mode = argv[1];
   if (mode === 'append') {
+    const idEnv = env('NOTIFYME_ID');
     const e = {
-      id: env('NOTIFYME_ID') || 'nm_' + Date.now() + '_' + Math.floor(Math.random()*1e6),
+      id: idEnv || 'nm_' + Date.now() + '_' + Math.floor(Math.random()*1e6),
       status: argv[2], title: argv[3], due: argv[4] === '-' ? '' : argv[4],
       project: env('NOTIFYME_PROJECT'), project_path: env('NOTIFYME_PROJECT_PATH'),
       context: env('NOTIFYME_CONTEXT'), resume_prompt: env('NOTIFYME_RESUME_PROMPT'),
       reminder_id: env('NOTIFYME_REMINDER_ID'), reoffer_at: env('NOTIFYME_REOFFER_AT'),
       created_at: new Date().toISOString()
     };
+    if (idEnv) {
+      // Carry-forward merge: a status transition (cancel/complete/reconcile/
+      // re-armed deferral) only supplies the fields relevant to that
+      // transition (status/title/due, sometimes reoffer_at) — anything left
+      // empty/absent here falls back to the id's current last state, so
+      // fields like project/project_path/context/resume_prompt/reminder_id
+      // survive across transitions instead of being dropped. New non-empty
+      // values still win; status/created_at always come from this event.
+      // This read is not covered by the bash-side mkdir lock that guards the
+      // eventual append write (see journal_append) — a read-vs-append race
+      // is possible but acceptable for a single-user tool.
+      const prior = lastState(readLines(path)).find(s => s.id === idEnv);
+      if (prior) {
+        Object.keys(prior).forEach(k => {
+          if (k === 'status' || k === 'created_at') return;
+          if (e[k] === '' || e[k] === undefined) e[k] = prior[k];
+        });
+      }
+    }
     Object.keys(e).forEach(k => { if (e[k] === '') delete e[k]; });
     // Build the line here (needs Date/random/env), but do NOT write it from JXA:
     // NSFileHandle seekToEndOfFile+writeData is a TOCTOU race across processes

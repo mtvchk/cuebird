@@ -21,6 +21,7 @@ rid=$(echo  "$out" | sed 's/.*"reminder_id":"\([^"]*\)".*/\1/')
 "$PWD/tests/mock-adapter.sh" complete "$rid"
 "$N" list active | grep -q "$nmid" && fail "reconcile kept completed entry active"
 "$N" get "$nmid" | grep -q '"done"' || fail "reconcile did not journal done"
+"$N" get "$nmid" | grep -q '"resume_prompt":"resume: check gate 2"' || fail "reconcile transition dropped resume_prompt"
 
 # cancel flow on a fresh one
 out2=$("$N" add "$DUE" "друге нагадування") || fail "second add"

@@ -59,4 +59,12 @@ chmod 644 "$RO_DIR/journal.jsonl"
 [ "$rc" -eq 12 ] || fail "log with unwritable journal must exit 12, got $rc"
 echo "$err" | grep -q "journal write failed" || fail "log unwritable-journal failure must say 'journal write failed'"
 
+
+# transition preserves rich fields (carry-forward merge)
+CF=$(mktemp -d)
+cfid=$(NOTIFYME_STATE_DIR="$CF" NOTIFYME_PROJECT='ProjCF' NOTIFYME_RESUME_PROMPT='resume me' "$N" log deferred 'carry' '2026-12-01T09:00') || fail "cf log"
+NOTIFYME_STATE_DIR="$CF" NOTIFYME_ID="$cfid" "$N" log declined 'carry' '2026-12-01T09:00' >/dev/null || fail "cf transition"
+NOTIFYME_STATE_DIR="$CF" "$N" get "$cfid" | grep -q '"resume_prompt":"resume me"' || fail "transition dropped resume_prompt"
+NOTIFYME_STATE_DIR="$CF" "$N" get "$cfid" | grep -q '"project":"ProjCF"' || fail "transition dropped project"
+
 echo "ALL JOURNAL TESTS PASSED"
