@@ -15,6 +15,7 @@ expect_rc2 add "$(date -v+1d +%Y-%m-%d)" "title"   # missing time part
 expect_rc2 add "2027-02-30T09:00" "feb 30 does not exist"
 expect_rc2 add "2027-04-31T09:00" "april has 30 days"
 expect_rc2 add "2027-02-29T09:00" "2027 is not a leap year"
-"$N" add "2028-02-29T09:00" "real leap day" >/dev/null 2>&1
-[ $? -eq 1 ] || fail "2028-02-29 (valid leap day) should pass validation and hit the Task-6 stub (exit 1)"
+out=$("$N" add "2028-02-29T09:00" "real leap day" 2>&1)
+[ $? -eq 0 ] || fail "2028-02-29 (valid leap day) should pass validation and succeed: $out"
+echo "$out" | grep -q '"ok":true' || fail "valid leap day add did not report ok: $out"
 echo "ALL VALIDATION TESTS PASSED"

@@ -100,6 +100,10 @@ function run(argv) {
 EOF
 }
 
+osa_field() { # $1: one JSON object; $2: field name → prints value or ""
+  "$OSA" -l JavaScript -e 'function run(a){ return (JSON.parse(a[0])[a[1]]) || "" }' "$1" "$2"
+}
+
 validate_due() { # $1: YYYY-MM-DDTHH:MM (local); dies with exit 2, else echoes y m d H M
   [[ "$1" =~ ^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2})$ ]] \
     || die2 "invalid datetime: '$1' (need YYYY-MM-DDTHH:MM, local time)"
@@ -120,7 +124,24 @@ case "$cmd" in
     [ -n "$title" ] || die2 "empty title"
     comps=$(validate_due "$due") || exit 2
     read -r y m d H M <<< "$comps"
-    echo "TODO Task 6" >&2; exit 1
+    rid=$("$ADAPTER" add "$y" "$m" "$d" "$H" "$M" "$title" "${NOTIFYME_BODY:-}") || exit $?
+    out=$(NOTIFYME_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") || exit 2
+    nmid="${out%%$'\n'*}"
+    line="${out#*$'\n'}"
+    journal_append "$line"
+    printf '{"ok":true,"id":"%s","reminder_id":"%s"}\n' "$nmid" "$rid"
+    ;;
+  cancel|complete)
+    nmid="${1:-}"; [ -n "$nmid" ] || die2 "missing id"
+    entry=$(jxa_journal get "$nmid"); [ "$entry" = "__NOTFOUND__" ] && exit 3
+    rid=$(osa_field "$entry" reminder_id)
+    if [ -n "$rid" ]; then
+      if [ "$cmd" = cancel ]; then "$ADAPTER" delete "$rid" || true; else "$ADAPTER" complete "$rid" || true; fi
+    fi
+    newst=$([ "$cmd" = cancel ] && echo cancelled || echo done)
+    out=$(NOTIFYME_ID="$nmid" jxa_journal append "$newst" "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || exit 2
+    journal_append "${out#*$'\n'}"
+    echo '{"ok":true}'
     ;;
   log) # <status> <title> <due-or->
     st="${1:-}"; ti="${2:-}"; du="${3:--}"
@@ -134,7 +155,28 @@ case "$cmd" in
     echo "$id"
     ;;
   list)
-    jxa_journal list "${1:-all}" "${2:-}"
+    want="${1:-all}"; proj="${2:-}"
+    if [ "$want" = "active" ] || [ "$want" = "all" ]; then
+      jxa_journal list accepted "$proj" | while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        rid=$(osa_field "$entry" reminder_id); [ -n "$rid" ] || continue
+        eid=$(osa_field "$entry" id)
+        st=$("$ADAPTER" status "$rid" 2>/dev/null || echo pending)
+        case "$st" in
+          completed)
+            out=$(NOTIFYME_ID="$eid" jxa_journal append done "$(osa_field "$entry" title)" "$(osa_field "$entry" due)")
+            journal_append "${out#*$'\n'}"
+            ;;
+          missing)
+            out=$(NOTIFYME_ID="$eid" jxa_journal append cancelled "$(osa_field "$entry" title)" "$(osa_field "$entry" due)")
+            journal_append "${out#*$'\n'}"
+            ;;
+        esac
+      done
+    fi
+    [ "$want" = "active" ] && want="accepted"
+    out=$(jxa_journal list "$want" "$proj")
+    [ -n "$out" ] && printf '%s\n' "$out"
     ;;
   get)
     id="${1:-}"; [ -n "$id" ] || die2 "missing id"
@@ -153,6 +195,22 @@ case "$cmd" in
     ;;
   health)
     "$ADAPTER" health
+    ;;
+  selftest)
+    # Self-contained round-trip against a test list (no repo dependency —
+    # this must work from an installed plugin). Journal ops in a temp dir.
+    st_fail() { echo "SELFTEST FAILED: $1"; exit 1; }
+    tdir=$(mktemp -d)
+    tid=$(NOTIFYME_STATE_DIR="$tdir" "$SELF_DIR/notifyme.sh" log declined "selftest" "-") || st_fail "journal write"
+    NOTIFYME_STATE_DIR="$tdir" "$SELF_DIR/notifyme.sh" get "$tid" >/dev/null || st_fail "journal read"
+    export NOTIFYME_LIST="Claude Projects Test"
+    y=$(date -v+1d +%Y); m=$(date -v+1d +%m); d=$(date -v+1d +%d)
+    rid=$("$ADAPTER" add "$y" "$m" "$d" 10 30 "NotifyMe selftest" "created and removed by notifyme:doctor") || st_fail "adapter add"
+    [ "$("$ADAPTER" status "$rid")" = "pending" ] || st_fail "status after add"
+    "$ADAPTER" complete "$rid" || st_fail "complete"
+    "$ADAPTER" delete "$rid"   || st_fail "delete"
+    [ "$("$ADAPTER" status "$rid")" = "missing" ] || st_fail "status after delete"
+    echo "SELFTEST PASSED"
     ;;
   *) die2 "unknown command: $cmd" ;;
 esac
