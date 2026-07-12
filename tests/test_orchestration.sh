@@ -28,6 +28,15 @@ nmid2=$(echo "$out2" | sed 's/.*"id":"\([^"]*\)".*/\1/')
 "$N" cancel "$nmid2" || fail "cancel"
 "$N" get "$nmid2" | grep -q '"cancelled"' || fail "cancel not journaled"
 
+# complete flow (direct command, not via reconcile) on a fresh one
+out4=$("$N" add "$DUE" "четверте нагадування") || fail "fourth add"
+nmid4=$(echo "$out4" | sed 's/.*"id":"\([^"]*\)".*/\1/')
+rid4=$(echo  "$out4" | sed 's/.*"reminder_id":"\([^"]*\)".*/\1/')
+out5=$("$N" complete "$nmid4") || fail "complete"
+echo "$out5" | grep -q '"ok":true' || fail "complete output: $out5"
+"$N" get "$nmid4" | grep -q '"done"' || fail "complete not journaled"
+[ "$("$PWD/tests/mock-adapter.sh" status "$rid4")" = "completed" ] || fail "mock adapter status not completed after complete"
+
 # reconcile: reminder removed directly in Reminders (not via cancel/complete) → missing → reconcile marks cancelled
 out3=$("$N" add "$DUE" "третє нагадування") || fail "third add"
 nmid3=$(echo "$out3" | sed 's/.*"id":"\([^"]*\)".*/\1/')

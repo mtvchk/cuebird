@@ -127,7 +127,8 @@ case "$cmd" in
     comps=$(validate_due "$due") || exit 2
     read -r y m d H M <<< "$comps"
     rid=$("$ADAPTER" add "$y" "$m" "$d" "$H" "$M" "$title" "${NOTIFYME_BODY:-}") || exit $?
-    out=$(NOTIFYME_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") || exit 2
+    out=$(NOTIFYME_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") \
+      || { echo "journal build failed (reminder created: $rid)" >&2; exit 12; }
     nmid="${out%%$'\n'*}"
     line="${out#*$'\n'}"
     journal_append "$line" || { echo "journal write failed (reminder created: $rid)" >&2; exit 12; }
@@ -138,7 +139,9 @@ case "$cmd" in
     entry=$(jxa_journal get "$nmid"); [ "$entry" = "__NOTFOUND__" ] && exit 3
     rid=$(osa_field "$entry" reminder_id)
     if [ -n "$rid" ]; then
-      st=$("$ADAPTER" status "$rid" 2>/dev/null) || st="missing"
+      # TOCTOU between status and delete/complete is accepted: single-user tool,
+      # window is ms; worst case reconcile self-heals on next list.
+      st=$("$ADAPTER" status "$rid" 2>/dev/null) || exit $?
       if [ "$st" != "missing" ]; then
         if [ "$cmd" = cancel ]; then "$ADAPTER" delete "$rid" || exit $?
         else "$ADAPTER" complete "$rid" || exit $?; fi
@@ -147,7 +150,8 @@ case "$cmd" in
     fi
     newst=$([ "$cmd" = cancel ] && echo cancelled || echo done)
     out=$(NOTIFYME_ID="$nmid" jxa_journal append "$newst" "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || exit 2
-    journal_append "${out#*$'\n'}"
+    journal_append "${out#*$'\n'}" \
+      || { echo "journal write failed — стан у Reminders змінено, але не зафіксовано; повтори команду" >&2; exit 12; }
     echo '{"ok":true}'
     ;;
   log) # <status> <title> <due-or->
