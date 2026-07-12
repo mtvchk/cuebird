@@ -82,13 +82,30 @@ one fails.
      don't report this as a failure.
    - `raw` > 0 and `rc` ≠ 0 → ✗fix: перевір `~/.claude/notifyme/` — я можу
      показати, що там.
-   - `raw` > 0 and `rc` = 0 → ✓. Then compare `raw` against the number of
-     non-empty lines in `$out` (one JSON object per unique id the reader
-     returned). If the line count from `$out` is smaller than `raw`, some
-     journal lines are malformed and were silently skipped — report this as
-     a ⚠ alongside the ✓, not a failure: «N рядків журналу пошкоджені й
-     пропущені при читанні — це лише кеш, Нагадування лишається джерелом
-     правди» (fill in N = `raw` minus the parsed count).
+   - `raw` > 0 and `rc` = 0 → ✓. Then run the direct parse-count one-liner
+     below against the journal to find lines that fail to parse as JSON —
+     do NOT compare `raw` against `list all`'s output, since one id can
+     legitimately produce several journal lines across its lifetime
+     (accepted → deferred → done/cancelled are all separate appended
+     lines for the same id), so a raw-line-count vs unique-id-count
+     comparison false-positives on any healthy journal containing a
+     completed or cancelled reminder.
+     ```bash
+     /usr/bin/osascript -l JavaScript -e '
+     ObjC.import("Foundation");
+     function run(a){
+       const s=$.NSString.stringWithContentsOfFileEncodingError(a[0],$.NSUTF8StringEncoding,null);
+       if(!s||s.isNil()) return "total=0 bad=0";
+       let bad=0,total=0;
+       ObjC.unwrap(s).split("\n").filter(l=>l.trim()).forEach(l=>{total++;try{JSON.parse(l)}catch(e){bad++}});
+       return "total="+total+" bad="+bad;
+     }' "$HOME/.claude/notifyme/journal.jsonl"
+     ```
+     Parse `bad` from the output:
+     - `bad` = 0 → ✓, no further note needed.
+     - `bad` > 0 → ⚠ alongside the ✓, not a failure: «N нечитабельних
+       рядків у журналі — записи пропущено; Reminders лишається джерелом
+       правди» (fill in N = `bad`).
 
 7. **Updates** (the ONLY network call in NotifyMe, run just for this check,
    never blocking any other check):
