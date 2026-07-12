@@ -151,7 +151,7 @@ case "$cmd" in
     newst=$([ "$cmd" = cancel ] && echo cancelled || echo done)
     out=$(NOTIFYME_ID="$nmid" jxa_journal append "$newst" "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || exit 2
     journal_append "${out#*$'\n'}" \
-      || { echo "journal write failed — стан у Reminders змінено, але не зафіксовано; повтори команду" >&2; exit 12; }
+      || { echo "journal write failed — Reminders state WAS changed but not recorded; re-run the command" >&2; exit 12; }
     echo '{"ok":true}'
     ;;
   log) # <status> <title> <due-or->
@@ -177,12 +177,12 @@ case "$cmd" in
           completed)
             out=$(NOTIFYME_ID="$eid" jxa_journal append done "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
             line="${out#*$'\n'}"
-            [ -n "$line" ] && journal_append "$line"
+            [ -n "$line" ] && { journal_append "$line" || echo "warning: reconcile journal write failed (will retry on next list)" >&2; }
             ;;
           missing)
             out=$(NOTIFYME_ID="$eid" jxa_journal append cancelled "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
             line="${out#*$'\n'}"
-            [ -n "$line" ] && journal_append "$line"
+            [ -n "$line" ] && { journal_append "$line" || echo "warning: reconcile journal write failed (will retry on next list)" >&2; }
             ;;
         esac
       done
