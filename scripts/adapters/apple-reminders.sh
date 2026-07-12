@@ -5,10 +5,10 @@ set -uo pipefail
 LIST="${NOTIFYME_LIST:-Claude Projects}"
 OSA=/usr/bin/osascript
 
-# Exit codes: 10 permission denied, 11 verify failed, 12 other failure
+# Exit codes: 10 permission denied, 11 verify failed (used by add, Task 3), 12 other failure
 run_osa() { # stdin: applescript; args: argv for the script
   local out
-  out=$("$OSA" - "$@" 2>&1 </dev/stdin)
+  out=$("$OSA" - "$@" 2>&1)
   local rc=$?
   if [ $rc -ne 0 ]; then
     case "$out" in
@@ -49,7 +49,7 @@ EOF
 cmd="${1:-}"; shift || true
 case "$cmd" in
   health)
-    acct_info=$(resolve_account)
+    acct_info=$(resolve_account) || exit $?
     flag="${acct_info%%$'\t'*}"; acct="${acct_info#*$'\t'}"
     ensure_list "$acct"
     if [ "$flag" = "icloud" ]; then echo "ok $acct/$LIST"; else echo "ok-local $acct/$LIST"; fi
