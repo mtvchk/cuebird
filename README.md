@@ -26,7 +26,7 @@ use *is* the setup.
 ## Install
 
 ```
-/plugin marketplace add mtvchk/notifyme
+/plugin marketplace add itsmynamee/notifyme
 /plugin install notifyme@notifyme
 ```
 
