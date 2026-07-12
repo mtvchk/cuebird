@@ -1,0 +1,11 @@
+{
+  "name": "notifyme",
+  "owner": { "name": "mtvchk" },
+  "plugins": [
+    {
+      "name": "notifyme",
+      "source": "./",
+      "description": "Deadline-aware Claude Code. Mention a deadline once — get reminded on your iPhone, guaranteed."
+    }
+  ]
+}
