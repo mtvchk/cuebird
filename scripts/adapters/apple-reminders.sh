@@ -81,7 +81,7 @@ on run argv
   tell application "Reminders" to return name of reminder id (item 1 of argv)
 end run
 EOF
-) || { echo "verify failed" >&2; exit 11; }
+) || { rc=$?; [ "$rc" -eq 10 ] && exit 10; echo "verify failed" >&2; exit 11; }
     [ "$name" = "$6" ] || { echo "verify failed" >&2; exit 11; }
     echo "$rid"
     ;;
@@ -131,6 +131,7 @@ on run argv
   return out
 end run
 EOF
+    echo ""
     ;;
   *)
     echo "unknown command: $cmd" >&2; exit 2 ;;
