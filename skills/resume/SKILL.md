@@ -92,9 +92,10 @@ escaped literal `'`, reopen the quote).
    have changed since it was written — files may have moved on, the
    checkpoint may already be past), then explain where things stand in
    plain language, then continue the planned next steps.
-   - **Condition check-in**: if `resume_prompt`/`context` describes a
-     threshold condition (a `Критерій` line or equivalent — "10+ унікальних
-     відвідувачів", "9 сторінок в індексі 14+ днів") rather than a plain
+   - **Condition check-in**: if the resume_prompt or context describes a
+     threshold condition (the reminder body's Критерій content — restated
+     there per the remind skill's instructions) — e.g. "10+ унікальних
+     відвідувачів", "9 сторінок в індексі 14+ днів" — rather than a plain
      deadline, check that condition FIRST, against current reality, before
      anything else in `resume_prompt`.
      - **Met** → say so plainly, then proceed with the planned next steps
@@ -106,7 +107,10 @@ escaped literal `'`, reopen the quote).
        (re-estimate from current pace, state it as an estimate, propose the
        one concrete date), wait for yes/no/defer, and record the answer
        exactly as skills/remind's "Recording the user's answer" section
-       specifies. Never say or imply the wait is over when it isn't.
+       specifies. Never say or imply the wait is over when it isn't. When
+       re-arming, also offer to close the superseded fired entry
+       (`"$NOTIFYME" complete '<old-id>'` — it did its job: it brought you
+       back) so the journal doesn't accumulate stale accepted entries.
 
 5. Close the loop:
    - If the checkpoint is now passed/irrelevant, offer

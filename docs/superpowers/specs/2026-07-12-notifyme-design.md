@@ -186,13 +186,14 @@ notifyme/                          (repo root = the plugin)
 - **adapters/apple-reminders.sh** — all AppleScript lives here and nowhere
   else. Implements the adapter contract (§12). Replaceable in v2.
 - **hooks/session-start.sh** — injects one sentence per session:
-  *"NotifyMe is installed: when a concrete future deadline or checkpoint
-  emerges — from the user's words or from your own analysis and plans — offer
-  once to set a phone reminder (notifyme:remind). If the user mentions a
-  reminder that fired, resume it via notifyme:resume."*
+  *"NotifyMe is installed: when a concrete future deadline, checkpoint, or
+  dateless waiting condition (estimate its timeframe yourself) emerges — from
+  the user's words or your own analysis and plans — offer once to set a phone
+  reminder (skill notifyme:remind). If the user mentions a reminder that
+  fired, use skill notifyme:resume."*
   Additionally, it checks `journal.jsonl` for deferred offers whose
   `reoffer_at` has arrived and, only then, appends one line per due deferral
-  so Claude re-offers it (§8.5). Cost: ~45 tokens per session, plus a line
+  so Claude re-offers it (§8.5). Cost: ~55 tokens per session, plus a line
   per due deferral (rare).
 
 ### 5.2 Data flow (create)
@@ -428,5 +429,5 @@ mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
    «нагадування: <тема>» in any Claude Code session restores the full context
    and continues the work.
 5. `/notifyme:doctor` on a healthy system: 7/7 green in under 15 seconds.
-6. Session overhead: ≤ 50 tokens (one hook sentence).
+6. Session overhead: ≤ 60 tokens (one hook sentence).
 7. Every failure mode in §10 produces its exact message — verified manually.
