@@ -1,10 +1,10 @@
 #!/bin/bash
-# NotifyMe CLI façade. Skills call this and never the adapter directly.
+# Cuebird CLI façade. Skills call this and never the adapter directly.
 # Commands: add | log | list | get | cancel | complete | due-deferrals | prune | health | selftest
 set -uo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STATE_DIR="${NOTIFYME_STATE_DIR:-$HOME/.claude/notifyme}"
-ADAPTER="${NOTIFYME_ADAPTER:-$SELF_DIR/adapters/apple-reminders.sh}"
+STATE_DIR="${CUEBIRD_STATE_DIR:-$HOME/.claude/cuebird}"
+ADAPTER="${CUEBIRD_ADAPTER:-$SELF_DIR/adapters/apple-reminders.sh}"
 JOURNAL="$STATE_DIR/journal.jsonl"
 OSA=/usr/bin/osascript
 
@@ -12,9 +12,9 @@ mkdir -p "$STATE_DIR"
 [ -f "$STATE_DIR/config.json" ] || printf '{ "list_name": "Claude Projects", "default_hour": 9 }\n' > "$STATE_DIR/config.json"
 touch "$JOURNAL"
 
-if [ -z "${NOTIFYME_LIST:-}" ]; then
-  NOTIFYME_LIST=$("$OSA" -l JavaScript -e 'function run(a){try{return String(JSON.parse(a[0]).list_name||"Claude Projects")}catch(e){return "Claude Projects"}}' "$(cat "$STATE_DIR/config.json" 2>/dev/null || echo '{}')")
-  export NOTIFYME_LIST
+if [ -z "${CUEBIRD_LIST:-}" ]; then
+  CUEBIRD_LIST=$("$OSA" -l JavaScript -e 'function run(a){try{return String(JSON.parse(a[0]).list_name||"Claude Projects")}catch(e){return "Claude Projects"}}' "$(cat "$STATE_DIR/config.json" 2>/dev/null || echo '{}')")
+  export CUEBIRD_LIST
 fi
 
 die2() { echo "$1" >&2; exit 2; }
@@ -57,13 +57,13 @@ function env(k) { const v = $.NSProcessInfo.processInfo.environment.objectForKey
 function run(argv) {
   const path = argv[0], mode = argv[1];
   if (mode === 'append') {
-    const idEnv = env('NOTIFYME_ID');
+    const idEnv = env('CUEBIRD_ID');
     const e = {
       id: idEnv || 'nm_' + Date.now() + '_' + Math.floor(Math.random()*1e6),
       status: argv[2], title: argv[3], due: argv[4] === '-' ? '' : argv[4],
-      project: env('NOTIFYME_PROJECT'), project_path: env('NOTIFYME_PROJECT_PATH'),
-      context: env('NOTIFYME_CONTEXT'), resume_prompt: env('NOTIFYME_RESUME_PROMPT'),
-      reminder_id: env('NOTIFYME_REMINDER_ID'), reoffer_at: env('NOTIFYME_REOFFER_AT'),
+      project: env('CUEBIRD_PROJECT'), project_path: env('CUEBIRD_PROJECT_PATH'),
+      context: env('CUEBIRD_CONTEXT'), resume_prompt: env('CUEBIRD_RESUME_PROMPT'),
+      reminder_id: env('CUEBIRD_REMINDER_ID'), reoffer_at: env('CUEBIRD_REOFFER_AT'),
       created_at: new Date().toISOString()
     };
     if (idEnv) {
@@ -151,8 +151,8 @@ case "$cmd" in
     [ -n "$title" ] || die2 "empty title"
     comps=$(validate_due "$due") || exit 2
     read -r y m d H M <<< "$comps"
-    rid=$("$ADAPTER" add "$y" "$m" "$d" "$H" "$M" "$title" "${NOTIFYME_BODY:-}") || exit $?
-    out=$(NOTIFYME_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") \
+    rid=$("$ADAPTER" add "$y" "$m" "$d" "$H" "$M" "$title" "${CUEBIRD_BODY:-}") || exit $?
+    out=$(CUEBIRD_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") \
       || { echo "journal build failed (reminder created: $rid)" >&2; exit 12; }
     nmid="${out%%$'\n'*}"
     line="${out#*$'\n'}"
@@ -174,7 +174,7 @@ case "$cmd" in
       # missing → nothing to do in Reminders; journaling terminal state below IS the reconcile
     fi
     newst=$([ "$cmd" = cancel ] && echo cancelled || echo done)
-    out=$(NOTIFYME_ID="$nmid" jxa_journal append "$newst" "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || exit 2
+    out=$(CUEBIRD_ID="$nmid" jxa_journal append "$newst" "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || exit 2
     journal_append "${out#*$'\n'}" \
       || { echo "journal write failed — Reminders state WAS changed but not recorded; re-run the command" >&2; exit 12; }
     echo '{"ok":true}'
@@ -200,12 +200,12 @@ case "$cmd" in
         st=$("$ADAPTER" status "$rid" 2>/dev/null || echo pending)
         case "$st" in
           completed)
-            out=$(NOTIFYME_ID="$eid" jxa_journal append done "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
+            out=$(CUEBIRD_ID="$eid" jxa_journal append done "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
             line="${out#*$'\n'}"
             [ -n "$line" ] && { journal_append "$line" || echo "warning: reconcile journal write failed (will retry on next list)" >&2; }
             ;;
           missing)
-            out=$(NOTIFYME_ID="$eid" jxa_journal append cancelled "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
+            out=$(CUEBIRD_ID="$eid" jxa_journal append cancelled "$(osa_field "$entry" title)" "$(osa_field "$entry" due)") || continue
             line="${out#*$'\n'}"
             [ -n "$line" ] && { journal_append "$line" || echo "warning: reconcile journal write failed (will retry on next list)" >&2; }
             ;;
@@ -240,11 +240,11 @@ case "$cmd" in
     # this must work from an installed plugin). Journal ops in a temp dir.
     st_fail() { echo "SELFTEST FAILED: $1"; exit 1; }
     tdir=$(mktemp -d)
-    tid=$(NOTIFYME_STATE_DIR="$tdir" "$SELF_DIR/notifyme.sh" log declined "selftest" "-") || st_fail "journal write"
-    NOTIFYME_STATE_DIR="$tdir" "$SELF_DIR/notifyme.sh" get "$tid" >/dev/null || st_fail "journal read"
-    export NOTIFYME_LIST="Claude Projects Test"
+    tid=$(CUEBIRD_STATE_DIR="$tdir" "$SELF_DIR/cuebird.sh" log declined "selftest" "-") || st_fail "journal write"
+    CUEBIRD_STATE_DIR="$tdir" "$SELF_DIR/cuebird.sh" get "$tid" >/dev/null || st_fail "journal read"
+    export CUEBIRD_LIST="Claude Projects Test"
     y=$(date -v+1d +%Y); m=$(date -v+1d +%m); d=$(date -v+1d +%d)
-    rid=$("$ADAPTER" add "$y" "$m" "$d" 10 30 "NotifyMe selftest" "created and removed by notifyme:doctor") || st_fail "adapter add"
+    rid=$("$ADAPTER" add "$y" "$m" "$d" 10 30 "Cuebird selftest" "created and removed by cuebird:doctor") || st_fail "adapter add"
     [ "$("$ADAPTER" status "$rid")" = "pending" ] || st_fail "status after add"
     "$ADAPTER" complete "$rid" || st_fail "complete"
     "$ADAPTER" delete "$rid"   || st_fail "delete"

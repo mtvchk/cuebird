@@ -1,9 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 cd "$(dirname "$0")/.."
-export NOTIFYME_STATE_DIR=$(mktemp -d) MOCK_DB=$(mktemp)
-export NOTIFYME_ADAPTER="$PWD/tests/mock-adapter.sh"
-N="scripts/notifyme.sh"
+export CUEBIRD_STATE_DIR=$(mktemp -d) MOCK_DB=$(mktemp)
+export CUEBIRD_ADAPTER="$PWD/tests/mock-adapter.sh"
+N="scripts/cuebird.sh"
 fail() { echo "FAIL: $1"; exit 1; }
 expect_rc2() { "$N" "$@" >/dev/null 2>&1; [ $? -eq 2 ] || fail "expected exit 2: $N $*"; }
 

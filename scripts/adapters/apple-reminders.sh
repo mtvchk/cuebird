@@ -1,8 +1,8 @@
 #!/bin/bash
-# NotifyMe delivery adapter: Apple Reminders. ALL AppleScript lives here.
+# Cuebird delivery adapter: Apple Reminders. ALL AppleScript lives here.
 # Contract (spec §12): add | list | status | complete | delete | health
 set -uo pipefail
-LIST="${NOTIFYME_LIST:-Claude Projects}"
+LIST="${CUEBIRD_LIST:-Claude Projects}"
 OSA=/usr/bin/osascript
 
 # Exit codes: 10 permission denied, 11 verify failed (used by add, Task 3), 12 other failure

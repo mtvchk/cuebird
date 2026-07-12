@@ -1,28 +1,28 @@
 ---
 name: reminders
-description: Review and manage every NotifyMe decision — active phone reminders, past ones, declined and deferred offers. Use when the user asks what reminders exist, wants to change/cancel/re-enable one, revisit a "no", or clean up history.
+description: Review and manage every Cuebird decision — active phone reminders, past ones, declined and deferred offers. Use when the user asks what reminders exist, wants to change/cancel/re-enable one, revisit a "no", or clean up history.
 ---
 
-# NotifyMe: reminders (the journal)
+# Cuebird: reminders (the journal)
 
 The journal records every decision ever made about a reminder — accepted,
 declined, deferred, done, cancelled. The Reminders app owns notification
 content; the journal owns history. Nothing here is final: every past "no"
-can become a "yes". Below, `$NOTIFYME` denotes the resolved absolute path to
+can become a "yes". Below, `$CUEBIRD` denotes the resolved absolute path to
 the CLI — it is notation, not a shell variable: each bash command you run is
 its own fresh shell, so substitute the literal path directly into every
 command below (or, if you do assign a shell variable, only rely on it within
 one single bash invocation, never across separate tool calls).
 
-Resolve `$NOTIFYME` using these methods, in order — never guess beyond them:
+Resolve `$CUEBIRD` using these methods, in order — never guess beyond them:
 1. If your skill invocation provides a "Base directory for this skill" (or
    equivalent), use it directly:
-   `NOTIFYME=<that-base>/../../scripts/notifyme.sh`
+   `CUEBIRD=<that-base>/../../scripts/cuebird.sh`
 2. Otherwise, if the environment variable `CLAUDE_PLUGIN_ROOT` is set in your
-   Bash environment, use `"$CLAUDE_PLUGIN_ROOT/scripts/notifyme.sh"`.
+   Bash environment, use `"$CLAUDE_PLUGIN_ROOT/scripts/cuebird.sh"`.
 3. Only if both of the above fail, locate the installed plugin under
    `~/.claude/plugins`:
-   `ls -d ~/.claude/plugins/*/notifyme*/scripts/notifyme.sh 2>/dev/null | head -1`
+   `ls -d ~/.claude/plugins/*/cuebird*/scripts/cuebird.sh 2>/dev/null | head -1`
 
 ### Shell safety (read before running any command below)
 
@@ -48,8 +48,8 @@ Default to the whole journal across all projects (that's the point of this
 skill); scope to one project only if the user asks for that or the context
 makes it obvious:
 ```bash
-"$NOTIFYME" list all
-"$NOTIFYME" list all '<project>'   # optional project scope
+"$CUEBIRD" list all
+"$CUEBIRD" list all '<project>'   # optional project scope
 ```
 Each output line is a JSON object. `list all` (like `list active`)
 auto-reconciles active entries with the Reminders app first (completed there
@@ -57,7 +57,7 @@ auto-reconciles active entries with the Reminders app first (completed there
 stale. Read the printed JSON yourself to get each entry's `status` field —
 no separate call per status is needed unless the user asks to see only one
 bucket (e.g. "show me just what I declined"), in which case use
-`"$NOTIFYME" list '<status>' '<project>'` directly.
+`"$CUEBIRD" list '<status>' '<project>'` directly.
 
 Present as a compact table grouped by status, in the user's language: active
 first (title — human date — project), then deferred (with re-offer dates),
@@ -74,7 +74,7 @@ say so in one line instead of a table.
 
 ## Actions (always confirm the target entry first by title)
 
-- **Cancel active**: `"$NOTIFYME" cancel '<id>'` — deletes from Reminders
+- **Cancel active**: `"$CUEBIRD" cancel '<id>'` — deletes from Reminders
   too. Success prints `{"ok":true}`. Unknown id → exit 3, say plainly you
   couldn't find that entry and re-run `list all` rather than guessing at
   another id. `cancel` works on any id regardless of current status — it
@@ -84,14 +84,14 @@ say so in one line instead of a table.
   history cleanup — offer it if the user wants a specific deferred re-offer
   to simply stop, rather than pointing them at bulk history cleaning below.
 - **Mark done** (user says it's no longer needed because it happened):
-  `"$NOTIFYME" complete '<id>'`. Same exit-code handling as cancel.
+  `"$CUEBIRD" complete '<id>'`. Same exit-code handling as cancel.
 - Both `cancel` and `complete` are status-first: they check the Reminders
   app before touching the journal, so if the Reminders-side action fails
   (exit 10 — automation permission denied, or 12 — other Reminders failure),
   nothing is journaled and the entry's status is unchanged. Use the same
   user-facing messages as skills/remind's Failure table for exits 10/12 —
   don't invent new wording.
-- **Re-enable a declined/deferred/cancelled one**: run `"$NOTIFYME" get
+- **Re-enable a declined/deferred/cancelled one**: run `"$CUEBIRD" get
   '<id>'` and read whatever fields the printed JSON actually has. Status
   transitions (`cancel`/`complete`/reconcile) carry every prior field forward
   automatically, so `title`, `due`, `project`, `project_path`, `context`, and
@@ -105,13 +105,13 @@ say so in one line instead of a table.
   applicable, same confirmation line). The old entry stays in the journal
   as history unchanged; the new one gets a new id from `add`.
 - **Change a deferral date**: re-arming reuses the same journal id; fields
-  you don't re-supply (e.g. `NOTIFYME_PROJECT`) carry forward automatically
+  you don't re-supply (e.g. `CUEBIRD_PROJECT`) carry forward automatically
   from the id's current state, so you only need to pass what's actually
   changing:
   ```bash
-  NOTIFYME_ID='<id>' \
-  NOTIFYME_REOFFER_AT='<new-YYYY-MM-DDTHH:MM>' \
-  "$NOTIFYME" log deferred '<title>' '<due>'
+  CUEBIRD_ID='<id>' \
+  CUEBIRD_REOFFER_AT='<new-YYYY-MM-DDTHH:MM>' \
+  "$CUEBIRD" log deferred '<title>' '<due>'
   ```
   Use the same `<title>` and `<due>` a prior `get '<id>'` showed — don't
   rephrase them. Acknowledge in one short sentence once done.
@@ -128,7 +128,7 @@ say so in one line instead of a table.
   as-is. Confirm the exact statuses before running anything, then per chosen
   status:
   ```bash
-  "$NOTIFYME" prune '<status>'
+  "$CUEBIRD" prune '<status>'
   ```
   Each call prints the number of entries it removed — report those counts
   back to the user (e.g. "removed 3 declined, 1 cancelled").

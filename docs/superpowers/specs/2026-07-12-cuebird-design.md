@@ -1,4 +1,4 @@
-# NotifyMe — Design Specification
+# Cuebird — Design Specification
 
 **Date:** 2026-07-12
 **Status:** Draft for review
@@ -6,7 +6,7 @@
 
 ## 1. Product statement
 
-NotifyMe makes Claude Code deadline-aware. When a concrete deadline surfaces in
+Cuebird makes Claude Code deadline-aware. When a concrete deadline surfaces in
 conversation — in any project, old or new — Claude offers, once and politely, to
 set a reminder. On acceptance, the reminder lands in Apple Reminders, syncs to
 the user's iPhone via iCloud within seconds, and fires **locally on the phone**
@@ -22,7 +22,7 @@ your phone, guaranteed.*
    Apple Reminders is already on every Mac and iPhone. First use *is* the setup.
 2. **Invisible until useful.** The user may forget the plugin exists. Claude
    remembers for them. No banners, no startup messages, no nagging.
-3. **Native delivery.** Reminders created by NotifyMe are ordinary Apple
+3. **Native delivery.** Reminders created by Cuebird are ordinary Apple
    Reminders: snooze, complete, edit, Siri, Apple Watch — all free, all native.
 4. **Never lie about success.** Every creation is verified by reading the
    reminder back. A failure is reported in human language with exactly one
@@ -101,7 +101,7 @@ Etiquette rules (encoded in the skill, non-negotiable):
   skill honors the nuance:
   - **"так"** → created.
   - **"ні"** → this specific deadline is muted — but recorded in the journal
-    and reversible at any time via `/notifyme:reminders`. Declining one
+    and reversible at any time via `/cuebird:reminders`. Declining one
     deadline never mutes other or future deadlines.
   - **"поки ні" / "спитай ближче до дати"** → deferred: journal stores a
     re-offer date, and Claude brings it up again when that date arrives.
@@ -129,9 +129,9 @@ each produce one clear sentence and one fix.
 
 ### 4.3 On demand
 
-- `/notifyme:remind` — create a reminder explicitly ("нагадай мені 3 серпня
+- `/cuebird:remind` — create a reminder explicitly ("нагадай мені 3 серпня
   про реліз").
-- `/notifyme:reminders` — **the journal**: one command to see and manage the
+- `/cuebird:reminders` — **the journal**: one command to see and manage the
   full decision history, filterable by project:
   - active reminders (pending, with dates)
   - fired/past ones (with cleanup offer)
@@ -140,11 +140,11 @@ each produce one clear sentence and one fix.
   Natural-language actions: cancel, re-enable a declined one, defer, update a
   date, clean history. Every "так" and "ні" the user ever gave is reviewable
   and changeable here — nothing is final.
-- `/notifyme:resume` — pick up where a fired reminder left off: matches the
+- `/cuebird:resume` — pick up where a fired reminder left off: matches the
   user's phrase against the journal, loads the stored continuation context,
   and carries on (§8.6). Also triggers naturally — "мені прийшло нагадування
   про гейт 2" works without the slash command.
-- `/notifyme:doctor` — self-diagnostics (§9).
+- `/cuebird:doctor` — self-diagnostics (§9).
 
 Editing reminder text/time and completing them is deliberately **not**
 duplicated here — the Reminders app is the management UI (native >
@@ -154,7 +154,7 @@ reimplemented). The journal manages *decisions*; Reminders manages
 ## 5. Architecture
 
 ```
-notifyme/                          (repo root = the plugin)
+cuebird/                          (repo root = the plugin)
 ├── .claude-plugin/
 │   ├── plugin.json                name, version, description, author
 │   └── marketplace.json           single-plugin marketplace for /plugin install
@@ -167,7 +167,7 @@ notifyme/                          (repo root = the plugin)
 │   ├── hooks.json                 registers SessionStart hook
 │   └── session-start.sh           echoes ONE sentence of context (~30 tokens)
 ├── scripts/
-│   ├── notifyme.sh                CLI façade: add | list | delete | health
+│   ├── cuebird.sh                CLI façade: add | list | delete | health
 │   └── adapters/
 │       └── apple-reminders.sh     the only v1 adapter (osascript inside)
 ├── README.md                      product page: promise, platforms, install
@@ -179,18 +179,18 @@ notifyme/                          (repo root = the plugin)
 
 - **skills/** — all conversation logic: when to offer, how to parse dates from
   natural language (Claude does this — no date-parsing code), how to phrase
-  confirmations. Skills call `scripts/notifyme.sh` and never osascript directly.
-- **scripts/notifyme.sh** — thin, stable CLI contract. Validates input
+  confirmations. Skills call `scripts/cuebird.sh` and never osascript directly.
+- **scripts/cuebird.sh** — thin, stable CLI contract. Validates input
   (ISO 8601 datetime, non-empty title), routes to the configured adapter,
   maintains the local log. Testable standalone without Claude.
 - **adapters/apple-reminders.sh** — all AppleScript lives here and nowhere
   else. Implements the adapter contract (§12). Replaceable in v2.
 - **hooks/session-start.sh** — injects one sentence per session:
-  *"NotifyMe is installed: when a concrete future deadline, checkpoint, or
+  *"Cuebird is installed: when a concrete future deadline, checkpoint, or
   dateless waiting condition (estimate its timeframe yourself) emerges — from
   the user's words or your own analysis and plans — offer once to set a phone
-  reminder (skill notifyme:remind). If the user mentions a reminder that
-  fired, use skill notifyme:resume."*
+  reminder (skill cuebird:remind). If the user mentions a reminder that
+  fired, use skill cuebird:resume."*
   Additionally, it checks `journal.jsonl` for deferred offers whose
   `reoffer_at` has arrived and, only then, appends one line per due deferral
   so Claude re-offers it (§8.5). Cost: ~55 tokens per session, plus a line
@@ -200,10 +200,10 @@ notifyme/                          (repo root = the plugin)
 
 ```
 conversation → skill (parses intent+date, gets consent)
-  → notifyme.sh add "2026-07-25T09:00:00+02:00" "здати фічу" "project: MyApp"
+  → cuebird.sh add "2026-07-25T09:00:00+02:00" "здати фічу" "project: MyApp"
     → adapter: osascript (build date via components — locale-proof)
     → adapter: read reminder back by id  ✓ verified
-    → notifyme.sh: append to ~/.claude/notifyme/reminders.jsonl
+    → cuebird.sh: append to ~/.claude/cuebird/reminders.jsonl
   → skill: one-line confirmation to user
 ```
 
@@ -220,7 +220,7 @@ conversation → skill (parses intent+date, gets consent)
   locale-proof.
 - **Title:** the user's own words, short ("здати фічу"), no prefixes — it must
   read like a reminder the user would write. Project name goes to **body**:
-  `MyApp — created by NotifyMe`, so list view stays clean and provenance stays
+  `MyApp — created by Cuebird`, so list view stays clean and provenance stays
   discoverable.
 - **Verification:** `make new reminder` returns the object; adapter reads back
   its `id` and due date; only then reports success. The id is stored in the
@@ -230,7 +230,7 @@ conversation → skill (parses intent+date, gets consent)
 
 ## 7. Local state
 
-`~/.claude/notifyme/` (created on first use):
+`~/.claude/cuebird/` (created on first use):
 
 - `config.json` — `{ "list_name": "Claude Projects", "default_hour": 9 }`.
   Defaults work for everyone; the file exists for the few who care.
@@ -257,7 +257,7 @@ All v1 reminders are one-shot. For periodic needs ("заглядати в GSC р
 reminder at the next *decision point* (the earliest date when checking becomes
 meaningful). If the user wants true recurrence, Claude says so honestly:
 AppleScript exposes no recurrence, but adding a repeat in the Reminders app is
-one tap — and the reminder NotifyMe just created is the thing to tap on.
+one tap — and the reminder Cuebird just created is the thing to tap on.
 
 ### 8.2 Context-rich by default
 
@@ -273,7 +273,7 @@ do); the **body** follows a fixed template, plain language, no jargon:
 
 ▶ Відкрий Claude Code у проєкті й скажи: «нагадування: гейт 2»
 
-— NotifyMe
+— Cuebird
 ```
 
 Four lines answer: what, where (which project, in human words), how to tell
@@ -287,7 +287,7 @@ session needs: project path, the state of things when the reminder was set,
 what exactly to check, and the planned next steps.
 
 When the user returns — "мені прийшло нагадування про гейт 2" or
-`/notifyme:resume` — Claude matches the phrase against the journal, loads the
+`/cuebird:resume` — Claude matches the phrase against the journal, loads the
 `resume_prompt`, and continues as if the three-week gap never happened: it
 re-checks the current state, explains where things stand, and proceeds with
 the plan.
@@ -303,11 +303,11 @@ journal-based resume already delivers the experience natively.
 ### 8.3 After firing
 
 Native Reminders behavior applies: the reminder stays visible (overdue) until
-the user completes or snoozes it on any device. NotifyMe does not interfere.
+the user completes or snoozes it on any device. Cuebird does not interfere.
 On the next `/reminders` (or any create flow), the journal reconciles:
 completed in the app → `done`; deleted in the app → `cancelled`; past-due
 entries are flagged and a cleanup is *offered* ("3 нагадування вже в минулому
-— прибрати з журналу?"). NotifyMe never deletes anything from Reminders on
+— прибрати з журналу?"). Cuebird never deletes anything from Reminders on
 its own.
 
 ### 8.4 Stale awareness
@@ -323,7 +323,7 @@ SessionStart hook surfaces due deferrals: when a session starts and a
 deferred offer's date has arrived, Claude re-offers it once at the first
 natural pause. Deferring again is fine; the user steers.
 
-## 9. Self-diagnostics — `/notifyme:doctor`
+## 9. Self-diagnostics — `/cuebird:doctor`
 
 Runs seven checks, prints an Apple-style report (✓/✗ + one-line fix each):
 
@@ -346,10 +346,10 @@ Runs seven checks, prints an Apple-style report (✓/✗ + one-line fix each):
 |---|---|---|
 | Automation permission denied | osascript error −1743 | "macOS заборонив доступ до Нагадувань. Увімкни: System Settings → Privacy & Security → Automation → Terminal → Reminders." |
 | No iCloud account in Reminders | account enumeration | "Нагадування створиться лише на цьому Mac — iPhone його не побачить. Увімкни Reminders в iCloud (System Settings → Apple ID → iCloud)." + asks whether to proceed local-only |
-| Reminders app missing/broken | osascript −600 | "Не бачу застосунок Нагадування. Запусти /notifyme:doctor." |
-| Past date requested | notifyme.sh validation | Claude asks for a correct date (skill-level, before any script call) |
+| Reminders app missing/broken | osascript −600 | "Не бачу застосунок Нагадування. Запусти /cuebird:doctor." |
+| Past date requested | cuebird.sh validation | Claude asks for a correct date (skill-level, before any script call) |
 | Duplicate deadline | log lookup | No offer; on explicit /remind: "Уже стоїть на 25 лип — продублювати?" |
-| osascript succeeds but read-back fails | adapter verification | "Не зміг підтвердити створення — перевір список Claude Projects. /notifyme:doctor допоможе." |
+| osascript succeeds but read-back fails | adapter verification | "Не зміг підтвердити створення — перевір список Claude Projects. /cuebird:doctor допоможе." |
 
 Rule: every error message ≤ 2 sentences, names the fix, never shows a stack
 trace or AppleScript error text.
@@ -358,7 +358,7 @@ trace or AppleScript error text.
 
 - No telemetry, no analytics, no automatic network calls.
 - Reminder content lives in the user's Reminders (Apple's iCloud E2E rules
-  apply) and in a local log under `~/.claude/notifyme/`.
+  apply) and in a local log under `~/.claude/cuebird/`.
 - The one network call (doctor's update check) fetches a public GitHub
   releases URL and sends nothing but the request itself.
 - Stated in README verbatim.
@@ -383,7 +383,7 @@ deleted-in-app are different journal outcomes (`done` vs `cancelled`).
 `config.json` gains `"adapter": "apple-reminders"` (default). v2 adds
 `ntfy.sh` adapter (delivery: ntfy app on any phone; scheduling beyond ntfy's
 3-day delay limit via cron-job.org one-shot API). Nothing in skills or
-notifyme.sh changes — that is the test of the boundary.
+cuebird.sh changes — that is the test of the boundary.
 
 Update path: plugin updates arrive via the standard `/plugin` marketplace
 mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
@@ -401,7 +401,7 @@ mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
 
 ## 14. Testing & release QA
 
-- `scripts/notifyme.sh` self-check mode: `notifyme.sh selftest` — runs the
+- `scripts/cuebird.sh` self-check mode: `cuebird.sh selftest` — runs the
   doctor round-trip against a `Claude Projects Test` list and cleans up.
   This is the repo's runnable check (CI can't grant Automation permission, so
   selftest is a documented local gate, run before every release).
@@ -423,11 +423,11 @@ mechanism; CHANGELOG.md + semver; doctor surfaces available updates on demand.
    like the "GSC gate" example (§4.1) produces an offer with the correct
    decision-point date, without the user mentioning reminders at all.
 3. Every "так"/"ні"/"пізніше" the user ever gave is visible and reversible
-   through one command (`/notifyme:reminders`).
+   through one command (`/cuebird:reminders`).
 4. **The loop closes:** a fired notification, read on the phone weeks later,
    is fully self-explanatory (what/where/criterion/next) — and saying
    «нагадування: <тема>» in any Claude Code session restores the full context
    and continues the work.
-5. `/notifyme:doctor` on a healthy system: 7/7 green in under 15 seconds.
+5. `/cuebird:doctor` on a healthy system: 7/7 green in under 15 seconds.
 6. Session overhead: ≤ 60 tokens (one hook sentence).
 7. Every failure mode in §10 produces its exact message — verified manually.

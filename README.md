@@ -1,8 +1,8 @@
-# NotifyMe
+# Cuebird
 
 Mention a deadline once. Get reminded on your iPhone, guaranteed.
 
-NotifyMe makes Claude Code deadline-aware, in every project. When a concrete
+Cuebird makes Claude Code deadline-aware, in every project. When a concrete
 deadline surfaces in conversation — yours, or a checkpoint Claude itself
 plans — Claude offers, once, to set a reminder. Say yes, and it lands in
 Apple Reminders, syncs to your iPhone over iCloud within seconds, and fires
@@ -26,8 +26,8 @@ use *is* the setup.
 ## Install
 
 ```
-/plugin marketplace add itsmynamee/notifyme
-/plugin install notifyme@notifyme
+/plugin marketplace add itsmynamee/cuebird
+/plugin install cuebird@cuebird
 ```
 
 No further configuration. The first time you accept a reminder, macOS asks
@@ -56,23 +56,23 @@ you'll see.
 
 ## Commands
 
-- **`notifyme:remind`** — create a reminder explicitly ("remind me August 3rd about the release").
-- **`notifyme:reminders`** — the journal: see and manage every reminder and every past decision — active, declined, deferred, done — all reversible.
-- **`notifyme:resume`** — pick up the work a fired reminder was about; also triggers naturally when you mention a reminder that arrived.
-- **`notifyme:doctor`** — run seven self-diagnostic checks (the seventh is an on-demand update check).
+- **`cuebird:remind`** — create a reminder explicitly ("remind me August 3rd about the release").
+- **`cuebird:reminders`** — the journal: see and manage every reminder and every past decision — active, declined, deferred, done — all reversible.
+- **`cuebird:resume`** — pick up the work a fired reminder was about; also triggers naturally when you mention a reminder that arrived.
+- **`cuebird:doctor`** — run seven self-diagnostic checks (the seventh is an on-demand update check).
 
 ## Privacy
 
 - No telemetry, no analytics, no automatic network calls.
 - Reminder content lives in your own Reminders (Apple's iCloud end-to-end
-  rules apply) and in a local log under `~/.claude/notifyme/`.
-- The **only** network call NotifyMe ever makes is `notifyme:doctor`'s
+  rules apply) and in a local log under `~/.claude/cuebird/`.
+- The **only** network call Cuebird ever makes is `cuebird:doctor`'s
   on-demand update check, which fetches a public GitHub releases URL and
   sends nothing but the request itself.
 
 ## Troubleshooting
 
-Run `notifyme:doctor` first — it checks seven things end to end and names
+Run `cuebird:doctor` first — it checks seven things end to end and names
 the exact fix for whatever's wrong.
 
 The two most common issues:

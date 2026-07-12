@@ -1,14 +1,14 @@
 #!/bin/bash
 set -uo pipefail
 cd "$(dirname "$0")/.."
-export NOTIFYME_STATE_DIR=$(mktemp -d) MOCK_DB=$(mktemp)
-export NOTIFYME_ADAPTER="$PWD/tests/mock-adapter.sh"
-N="scripts/notifyme.sh"
+export CUEBIRD_STATE_DIR=$(mktemp -d) MOCK_DB=$(mktemp)
+export CUEBIRD_ADAPTER="$PWD/tests/mock-adapter.sh"
+N="scripts/cuebird.sh"
 fail() { echo "FAIL: $1"; exit 1; }
 DUE=$(date -v+7d +%Y-%m-%dT09:00)
 
-out=$(NOTIFYME_BODY="Що: перевірити гейт" NOTIFYME_PROJECT="MedSearch" \
-      NOTIFYME_PROJECT_PATH="/tmp/med" NOTIFYME_RESUME_PROMPT="resume: check gate 2" \
+out=$(CUEBIRD_BODY="Що: перевірити гейт" CUEBIRD_PROJECT="MedSearch" \
+      CUEBIRD_PROJECT_PATH="/tmp/med" CUEBIRD_RESUME_PROMPT="resume: check gate 2" \
       "$N" add "$DUE" "перевірити гейт 2") || fail "add failed"
 echo "$out" | grep -q '"ok":true' || fail "add output: $out"
 nmid=$(echo "$out" | sed 's/.*"id":"\([^"]*\)".*/\1/')
@@ -51,23 +51,23 @@ rid3=$(echo  "$out3" | sed 's/.*"reminder_id":"\([^"]*\)".*/\1/')
 "$N" complete >/dev/null 2>&1; [ $? -eq 2 ] || fail "complete without id must exit 2"
 "$N" cancel "nm_nope" >/dev/null 2>&1; [ $? -eq 3 ] || fail "cancel on missing id must exit 3"
 
-# list_name from config.json is wired into NOTIFYME_LIST when the env var is unset
+# list_name from config.json is wired into CUEBIRD_LIST when the env var is unset
 lncfg_dir=$(mktemp -d)
 printf '{"list_name":"Custom List","default_hour":9}\n' > "$lncfg_dir/config.json"
 lncfg_seen=$(mktemp)
 lncfg_wrapper=$(mktemp)
 cat > "$lncfg_wrapper" <<EOF
 #!/bin/bash
-echo "\$NOTIFYME_LIST" >> "$lncfg_seen"
+echo "\$CUEBIRD_LIST" >> "$lncfg_seen"
 exec "$PWD/tests/mock-adapter.sh" "\$@"
 EOF
 chmod +x "$lncfg_wrapper"
 (
-  unset NOTIFYME_LIST
-  NOTIFYME_STATE_DIR="$lncfg_dir" MOCK_DB=$(mktemp) NOTIFYME_ADAPTER="$lncfg_wrapper" \
+  unset CUEBIRD_LIST
+  CUEBIRD_STATE_DIR="$lncfg_dir" MOCK_DB=$(mktemp) CUEBIRD_ADAPTER="$lncfg_wrapper" \
     "$N" add "$DUE" "list name test" >/dev/null
 ) || fail "list_name test: add failed"
 grep -qx "Custom List" "$lncfg_seen" \
-  || fail "list_name from config.json not wired into NOTIFYME_LIST (got: $(cat "$lncfg_seen"))"
+  || fail "list_name from config.json not wired into CUEBIRD_LIST (got: $(cat "$lncfg_seen"))"
 
 echo "ALL ORCHESTRATION TESTS PASSED"
