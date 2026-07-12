@@ -75,6 +75,8 @@ on run argv
 end run
 EOF
 ) || exit $?
+    # Read-back semantics: permission loss (10) propagates; ANY other read-back
+    # failure is a verification failure (11) by design — see spec §10.
     # Verification (spec §6): read the reminder back before claiming success.
     name=$(run_osa "$rid" <<'EOF'
 on run argv
@@ -118,7 +120,7 @@ EOF
     acct_info=$(resolve_account) || exit $?
     acct="${acct_info#*$'\t'}"
     ensure_list "$acct"
-    run_osa "$acct" "$LIST" <<'EOF'
+    out=$(run_osa "$acct" "$LIST" <<'EOF'
 on run argv
   set out to ""
   tell application "Reminders"
@@ -131,7 +133,9 @@ on run argv
   return out
 end run
 EOF
-    echo ""
+) || exit $?
+    [ -n "$out" ] && printf '%s\n' "$out"
+    exit 0
     ;;
   *)
     echo "unknown command: $cmd" >&2; exit 2 ;;
