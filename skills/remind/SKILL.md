@@ -1,21 +1,27 @@
 ---
 name: remind
-description: Set a phone reminder via Apple Reminders. Use PROACTIVELY when a concrete future deadline, checkpoint, waiting period, or "check back in N days/weeks" moment emerges in conversation — from the user's words OR from your own analysis and plans. Also when the user explicitly asks to be reminded of something.
+description: Set a phone reminder via Apple Reminders. Use PROACTIVELY when a concrete future deadline, checkpoint, waiting period, or "check back in N days/weeks" moment emerges in conversation — from the user's words OR from your own analysis and plans. Also when the user explicitly asks to be reminded of something. Do not trigger for incidental/past dates with no action attached.
 ---
 
 # NotifyMe: remind
 
 You create Apple Reminders that sync to the user's iPhone via iCloud and fire
-there even when this Mac is off. The CLI lives at
-`<skill-base>/../../scripts/notifyme.sh` (resolve relative to this file's own
-location into one absolute path). Below, `$NOTIFYME` denotes that resolved
-absolute path — it is notation, not a shell variable: each bash command you
-run is its own fresh shell, so substitute the literal path directly into
-every command below (or, if you do assign a shell variable, only rely on it
-within one single bash invocation, never across separate tool calls). If
-this file's own absolute path isn't otherwise available to you, locate the
-notifyme plugin's root (the directory containing `skills/` and `scripts/`)
-and build the path from there instead of guessing.
+there even when this Mac is off. Below, `$NOTIFYME` denotes the resolved
+absolute path to the CLI — it is notation, not a shell variable: each bash
+command you run is its own fresh shell, so substitute the literal path
+directly into every command below (or, if you do assign a shell variable,
+only rely on it within one single bash invocation, never across separate
+tool calls).
+
+Resolve `$NOTIFYME` using these methods, in order — never guess beyond them:
+1. If your skill invocation provides a "Base directory for this skill" (or
+   equivalent), use it directly:
+   `NOTIFYME=<that-base>/../../scripts/notifyme.sh`
+2. Otherwise, if the environment variable `CLAUDE_PLUGIN_ROOT` is set in your
+   Bash environment, use `"$CLAUDE_PLUGIN_ROOT/scripts/notifyme.sh"`.
+3. Only if both of the above fail, locate the installed plugin under
+   `~/.claude/plugins`:
+   `ls -d ~/.claude/plugins/*/notifyme*/scripts/notifyme.sh 2>/dev/null | head -1`
 
 ## When to offer (etiquette — non-negotiable)
 
@@ -30,20 +36,25 @@ and build the path from there instead of guessing.
   Прийде на iPhone.»
 - Propose the MEANINGFUL date — the decision point, not the mention date.
   "14+ днів від 10.07" → offer 24.07. Exactly one option; the user adjusts.
-- Before offering, check for duplicates: run `$NOTIFYME list all "<project>"`
+- Before offering, check for duplicates: run `$NOTIFYME list all '<project>'`
   (the project argument scopes the check to this project) and skip the offer
   if an entry with the same intent and date already exists (any status). If
   it exists as active, you may briefly confirm it's already set.
 - Time of day: if the user gave none, use the default hour from
-  `~/.claude/notifyme/config.json` (`default_hour`, default 9 → 09:00).
+  `~/.claude/notifyme/config.json` (`default_hour`, default 9 → 09:00). Read
+  it with:
+  ```bash
+  default_hour=$(osascript -l JavaScript -e 'function run(a){try{return String(JSON.parse(a[0]).default_hour||9)}catch(e){return "9"}}' "$(cat ~/.claude/notifyme/config.json 2>/dev/null || echo '{}')")
+  ```
 - For periodic needs ("перевіряти раз на кілька днів") do NOT create several
   reminders — one reminder at the earliest meaningful date. If the user wants
   true recurrence, tell them: open the just-created reminder in Apple
-  Reminders and add a repeat there (one tap; AppleScript cannot set it).
+  Reminders and add a repeat there (one tap; this adapter does not set
+  recurrence).
 - **Stale awareness**: if the conversation reveals a tracked reminder became
   irrelevant or already happened («гейт ми вже пройшли», «реліз скасували»),
   offer once to close it. First find its id — run `$NOTIFYME list all
-  "<project>"` and match the entry by title/intent to read its `id` field —
+  '<project>'` and match the entry by title/intent to read its `id` field —
   then, only after the user agrees: `$NOTIFYME complete <id>` (it already
   happened) or `$NOTIFYME cancel <id>` (it never will). Offer — never close
   anything without consent. If the id turns out stale (the command reports
@@ -55,12 +66,12 @@ and build the path from there instead of guessing.
 - **Yes** → create (below).
 - **No** → run the command, then move on with no extra ceremony — the
   user's "no" already closes the topic, it needs no separate confirmation:
-  `NOTIFYME_PROJECT="<project>" $NOTIFYME log declined "<title>" "<YYYY-MM-DDTHH:MM>"`
+  `NOTIFYME_PROJECT='<project>' $NOTIFYME log declined '<title>' '<YYYY-MM-DDTHH:MM>'`
   Never re-offer this deadline; it stays reversible via notifyme:reminders.
 - **"Not now / ask closer to the date"** → agree on a re-offer date, run the
   command below, then acknowledge in one short sentence (their language),
   e.g. «Гаразд, нагадаю ближче до дати.»:
-  `NOTIFYME_PROJECT="<project>" NOTIFYME_REOFFER_AT="<YYYY-MM-DDTHH:MM>" $NOTIFYME log deferred "<title>" "<due>"`
+  `NOTIFYME_PROJECT='<project>' NOTIFYME_REOFFER_AT='<YYYY-MM-DDTHH:MM>' $NOTIFYME log deferred '<title>' '<due>'`
 - Declining one deadline NEVER mutes other or future deadlines.
 - If a `log` command itself fails (non-zero exit, no id printed), that's a
   local bookkeeping failure only — nothing was promised in Reminders — so
@@ -69,6 +80,22 @@ and build the path from there instead of guessing.
   not `log`.
 
 ## Creating
+
+### Shell safety (read before running any command below)
+
+Every value you interpolate into these commands — title, body, resume
+prompt, project name — is free text: the user's own words, or text you
+composed from them. Double-quoted shell strings still expand backticks,
+`$(...)`, and `$VAR` inside them, so free text containing any of those is
+command-substituted or executed. That is a shell-injection risk, not a
+theoretical one.
+
+**ALWAYS wrap user-derived/composed values in SINGLE quotes. Escape any
+embedded single quote as `'\''`. NEVER use double quotes around interpolated
+text.**
+
+Example: a title of `It's done` becomes `'It'\''s done'` (close the quote,
+escaped literal `'`, reopen the quote).
 
 Compose:
 - **title** — the user's own words, short, their language, no prefixes.
@@ -92,12 +119,12 @@ Compose:
 Then run as ONE bash invocation exactly as shown (env vars carry the long
 fields safely — don't split this across separate tool calls):
 ```bash
-NOTIFYME_BODY="<body>" \
-NOTIFYME_PROJECT="<project name>" \
-NOTIFYME_PROJECT_PATH="<absolute path>" \
-NOTIFYME_CONTEXT="<one-line context>" \
-NOTIFYME_RESUME_PROMPT="<resume prompt>" \
-"$NOTIFYME" add "<YYYY-MM-DDTHH:MM>" "<title>"
+NOTIFYME_BODY='<body — single-quoted, embedded '\'' escaped>' \
+NOTIFYME_PROJECT='<project name>' \
+NOTIFYME_PROJECT_PATH='<absolute path>' \
+NOTIFYME_CONTEXT='<one-line context>' \
+NOTIFYME_RESUME_PROMPT='<resume prompt — single-quoted, embedded '\'' escaped>' \
+"$NOTIFYME" add '<YYYY-MM-DDTHH:MM>' '<title>'
 ```
 Success prints `{"ok":true,...}` (exit 0). Confirm in ONE line:
 «✓ Нагадування: «<title>» — <людська дата>. З'явиться на всіх твоїх
@@ -111,9 +138,10 @@ empty): run `"$NOTIFYME" health` first, before composing anything else.
   table below: warn and ask before proceeding. If the user says yes, continue
   to create anyway (it will just stay Mac-only); if no, stop — don't create
   anything.
-- Non-zero exit (10/11/12) → the SAME Failure table below applies to
-  `health`'s own exit code exactly as it would to `add`'s. Don't attempt to
-  create anything until the user has acted on the fix.
+- Non-zero exit (10 or 12 — `health` never returns 11; that code is
+  `add`-specific) → the SAME Failure table below applies to `health`'s own
+  exit code exactly as it would to `add`'s. Don't attempt to create anything
+  until the user has acted on the fix.
 
 After the first successful create, add one extra sentence: «Керувати
 нагадуваннями можна у застосунку Нагадування — список 'Claude Projects'.»

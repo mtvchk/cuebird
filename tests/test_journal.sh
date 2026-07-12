@@ -49,4 +49,14 @@ NOTIFYME_STATE_DIR="$CONC2" "$N" list declined | wc -l | grep -q '40' || fail "m
 # due-deferrals empty → zero bytes
 DD=$(mktemp -d); [ -z "$(NOTIFYME_STATE_DIR="$DD" "$N" due-deferrals)" ] || fail "empty due-deferrals must print nothing"
 
+# log: unwritable journal must surface as exit 12, not a silent false success
+RO_DIR=$(mktemp -d)
+NOTIFYME_STATE_DIR="$RO_DIR" "$N" log declined "seed" - >/dev/null || fail "seed log for read-only test"
+chmod 444 "$RO_DIR/journal.jsonl"
+err=$(NOTIFYME_STATE_DIR="$RO_DIR" "$N" log declined "should fail" - 2>&1 >/dev/null)
+rc=$?
+chmod 644 "$RO_DIR/journal.jsonl"
+[ "$rc" -eq 12 ] || fail "log with unwritable journal must exit 12, got $rc"
+echo "$err" | grep -q "journal write failed" || fail "log unwritable-journal failure must say 'journal write failed'"
+
 echo "ALL JOURNAL TESTS PASSED"

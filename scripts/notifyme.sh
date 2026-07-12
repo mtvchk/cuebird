@@ -162,7 +162,7 @@ case "$cmd" in
     out=$(jxa_journal append "$st" "$ti" "$du") || exit 2
     id="${out%%$'\n'*}"
     line="${out#*$'\n'}"
-    journal_append "$line"
+    journal_append "$line" || { echo "journal write failed" >&2; exit 12; }
     echo "$id"
     ;;
   list)
