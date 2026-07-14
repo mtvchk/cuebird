@@ -1,91 +1,104 @@
 # Cuebird
 
-Mention a deadline once. Get reminded on your iPhone, guaranteed.
+[![Release](https://img.shields.io/github/v/release/itsmynamee/cuebird)](https://github.com/itsmynamee/cuebird/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](#requirements)
+[![Agent: Claude Code](https://img.shields.io/badge/agent-Claude_Code-D97757.svg?logo=anthropic&logoColor=white)](https://github.com/anthropics/claude-code)
 
-Cuebird makes Claude Code deadline-aware, in every project. When a concrete
-deadline surfaces in conversation — yours, or a checkpoint Claude itself
-plans — Claude offers, once, to set a reminder. Say yes, and it lands in
-Apple Reminders, syncs to your iPhone over iCloud within seconds, and fires
-**locally on the phone** at the right moment — whether your Mac is on,
-Claude Code is running, or this plugin is even still installed.
+**Mention a deadline once. Get reminded on your iPhone, guaranteed.**
+
+![Cuebird animated preview](docs/demo.gif)
+
+Cuebird makes Claude Code deadline-aware in every project. When a concrete
+deadline surfaces in conversation — yours, or a checkpoint Claude itself plans
+— Claude offers once to set a reminder. Say yes, and it lands in Apple
+Reminders, syncs to your iPhone over iCloud within seconds, and fires locally on
+the phone at the right moment — whether your Mac is on, Claude Code is running,
+or this plugin is even still installed.
+
+Looking for the Codex edition? Use [Cuebird CX](https://github.com/itsmynamee/cuebird-cx).
+
+## Why Cuebird
+
+- **Survives the session:** reminders fire on your Apple devices even when the
+  Mac is off and Claude Code is closed.
+- **Verified delivery path:** Cuebird reads every new reminder back before
+  reporting success.
+- **Context comes back:** mention `нагадування: <key>` later and Claude can
+  restore the saved project context and next steps.
+- **Consent first:** it offers once and creates a reminder only after you agree.
+- **Local by design:** no account, token, configuration file, telemetry, or
+  hosted service.
 
 ## Requirements
 
-- macOS, with the Reminders app signed into iCloud
-- An iPhone (or iPad/Watch) on that same iCloud account
+- macOS with the Reminders app signed into iCloud
+- An iPhone, iPad, or Apple Watch on that same iCloud account
+- Claude Code with plugin and hook support
 
-That's it. No accounts to create, no tokens, no config file to edit. First
-use *is* the setup.
-
-| Claude Code on | Phone | Support |
-|---|---|---|
-| macOS | iPhone / iPad / Watch | Apple Reminders (this release) |
-| macOS | Android | planned — ntfy adapter |
-| Windows / Linux | any | planned — ntfy adapter |
+First use is the setup. There is no account to create, token to copy, or
+configuration file to edit.
 
 ## Install
 
-```
+```text
 /plugin marketplace add itsmynamee/cuebird
 /plugin install cuebird@cuebird
 ```
 
-No further configuration. The first time you accept a reminder, macOS asks
-once for permission to control Reminders — that's the only setup screen
-you'll see.
+The first time you accept a reminder, macOS asks once for permission to control
+Reminders. No further configuration is required.
 
 ## How it works
 
-```
- 1. session hook   ──  Claude quietly notes: "offer reminders when a
-                        deadline appears" (~45 tokens, invisible to you)
- 2. offer          ──  a deadline surfaces in conversation — yours, or
-                        Claude's own plan — Claude offers once
- 3. consent        ──  you say "yes" (or adjust the date in one breath)
- 4. osascript      ──  Claude creates the reminder in Apple Reminders
-                        and reads it back to confirm it really exists
- 5. iCloud sync    ──  the reminder syncs to your other Apple devices,
-                        typically within seconds
- 6. phone fires    ──  your iPhone shows the notification — locally,
-                        even if your Mac is off
- 7. «нагадування: <key>» ── weeks later, you mention the reminder to
-                        Claude in any session
- 8. resume         ──  Claude loads the full context it saved and picks
-                        up exactly where things left off
-```
+1. The session hook tells Claude to notice actionable future checkpoints.
+2. Claude offers one meaningful reminder when a deadline surfaces.
+3. You accept it or adjust the date in the same reply.
+4. Cuebird creates the reminder with `osascript` and reads it back to confirm it
+   exists.
+5. iCloud syncs the reminder to your other Apple devices, typically within
+   seconds.
+6. Your iPhone shows the notification locally, even if your Mac is off.
+7. Later, mention `нагадування: <key>` in any session to restore the saved work
+   context.
 
 ## Commands
 
-- **`cuebird:remind`** — create a reminder explicitly ("remind me August 3rd about the release").
-- **`cuebird:reminders`** — the journal: see and manage every reminder and every past decision — active, declined, deferred, done — all reversible.
-- **`cuebird:resume`** — pick up the work a fired reminder was about; also triggers naturally when you mention a reminder that arrived.
-- **`cuebird:doctor`** — run seven self-diagnostic checks (the seventh is an on-demand update check).
+- `cuebird:remind` — create a reminder explicitly, such as "remind me August
+  3rd about the release."
+- `cuebird:reminders` — review and manage active, declined, deferred, and
+  completed decisions; every state is reversible.
+- `cuebird:resume` — restore the work context for a fired reminder.
+- `cuebird:doctor` — run seven end-to-end diagnostics, including an on-demand
+  update check.
 
 ## Privacy
 
-- No telemetry, no analytics, no automatic network calls.
-- Reminder content lives in your own Reminders (Apple's iCloud end-to-end
-  rules apply) and in a local log under `~/.claude/cuebird/`.
-- The **only** network call Cuebird ever makes is `cuebird:doctor`'s
-  on-demand update check, which fetches a public GitHub releases URL and
-  sends nothing but the request itself.
+- No telemetry, analytics, or automatic network calls.
+- Reminder content lives in Apple Reminders under Apple's iCloud rules and in a
+  local journal under `~/.claude/cuebird/`.
+- The only network call is `cuebird:doctor`'s explicit update check against the
+  public GitHub Releases API.
 
 ## Troubleshooting
 
-Run `cuebird:doctor` first — it checks seven things end to end and names
-the exact fix for whatever's wrong.
+Run `cuebird:doctor` first. It checks seven things end to end and names the
+specific fix when something is wrong.
 
-The two most common issues:
-
-- **"macOS denied access to Reminders."** Go to System Settings → Privacy &
-  Security → Automation → (your terminal/Claude) → enable Reminders, then
+- **"macOS denied access to Reminders."** Go to **System Settings → Privacy &
+  Security → Automation**, enable Reminders for your terminal or Claude, then
   retry.
-- **"Reminders will only be created on this Mac — your iPhone won't see
-  them."** Your Reminders app isn't signed into iCloud. Go to System
-  Settings → Apple ID → iCloud → enable Reminders.
+- **"Reminders will only be created on this Mac."** Go to **System Settings →
+  Apple ID → iCloud** and enable Reminders.
 
-## Demo
+## Scope
 
-![demo](docs/demo.gif)
+| Claude Code on | Device | Support |
+| --- | --- | --- |
+| macOS | iPhone / iPad / Watch | Apple Reminders (this release) |
+| macOS | Android | Planned — ntfy adapter |
+| Windows / Linux | Any | Planned — ntfy adapter |
 
-<!-- Recorded at release: a 30-second capture of the core loop, from offer to phone notification. -->
+## License
+
+[MIT](LICENSE) © 2026 itsmynamee
