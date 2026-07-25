@@ -1,6 +1,6 @@
 # Cuebird
 
-[![Release](https://img.shields.io/github/v/release/itsmynamee/cuebird)](https://github.com/itsmynamee/cuebird/releases)
+[![Release](https://img.shields.io/github/v/release/mtvchk/cuebird)](https://github.com/mtvchk/cuebird/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform: macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg)](#requirements)
 [![Agent: Claude Code](https://img.shields.io/badge/agent-Claude_Code-D97757.svg?logo=anthropic&logoColor=white)](https://github.com/anthropics/claude-code)
@@ -16,7 +16,7 @@ Reminders, syncs to your iPhone over iCloud within seconds, and fires locally on
 the phone at the right moment — whether your Mac is on, Claude Code is running,
 or this plugin is even still installed.
 
-Looking for the Codex edition? Use [Cuebird CX](https://github.com/itsmynamee/cuebird-cx).
+Looking for the Codex edition? Use [Cuebird CX](https://github.com/mtvchk/cuebird-cx).
 
 ## Why Cuebird
 
@@ -42,7 +42,7 @@ configuration file to edit.
 ## Install
 
 ```text
-/plugin marketplace add itsmynamee/cuebird
+/plugin marketplace add mtvchk/cuebird
 /plugin install cuebird@cuebird
 ```
 
@@ -101,4 +101,4 @@ specific fix when something is wrong.
 
 ## License
 
-[MIT](LICENSE) © 2026 itsmynamee
+[MIT](LICENSE) © 2026 mtvchk

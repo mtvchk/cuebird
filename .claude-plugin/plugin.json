@@ -2,8 +2,8 @@
   "name": "cuebird",
   "version": "0.1.0",
   "description": "Deadline-aware Claude Code. Mention a deadline once — get reminded on your iPhone, guaranteed. Apple Reminders under the hood, zero configuration.",
-  "author": { "name": "itsmynamee" },
-  "homepage": "https://github.com/itsmynamee/cuebird",
+  "author": { "name": "mtvchk" },
+  "homepage": "https://github.com/mtvchk/cuebird",
   "license": "MIT",
   "keywords": ["reminders", "deadlines", "notifications", "apple-reminders", "productivity"]
 }
