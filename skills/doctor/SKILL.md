@@ -118,9 +118,7 @@ one fails.
      never a failure): «пропущено (немає мережі)».
    - `curl_rc` = 0 but the body has no `tag_name` (e.g. `"message": "Not
      Found"` — no release published yet, or the repo doesn't exist yet) →
-     ✓: «пропущено (реліз ще не опубліковано)». This is the current real
-     state of `mtvchk/cuebird` — expect this path, not the network-skip
-     path, until the first GitHub release is published.
+     ✓: «пропущено (реліз ще не опубліковано)».
    - Otherwise extract `tag_name`, strip a leading `v`, and compare against
      `local_version` as plain strings (no semver math needed — GitHub's
      `/releases/latest` already returns the newest non-prerelease tag, so
