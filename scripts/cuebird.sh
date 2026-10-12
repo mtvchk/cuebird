@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cuebird CLI façade. Skills call this and never the adapter directly.
-# Commands: add | log | list | get | cancel | complete | due-deferrals | prune | health | selftest
+# Commands: add | log | list | get | cancel | complete | due-deferrals | prune | project | health | selftest
 set -uo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="${CUEBIRD_STATE_DIR:-$HOME/.claude/cuebird}"
@@ -9,13 +9,22 @@ JOURNAL="$STATE_DIR/journal.jsonl"
 OSA=/usr/bin/osascript
 
 mkdir -p "$STATE_DIR"
-[ -f "$STATE_DIR/config.json" ] || printf '{ "list_name": "Claude Projects", "default_hour": 9 }\n' > "$STATE_DIR/config.json"
+[ -f "$STATE_DIR/config.json" ] || printf '{ "default_hour": 9 }\n' > "$STATE_DIR/config.json"
 touch "$JOURNAL"
+export CUEBIRD_STATE_DIR="$STATE_DIR"  # the adapter keeps its project→list map here
 
-if [ -z "${CUEBIRD_LIST:-}" ]; then
-  CUEBIRD_LIST=$("$OSA" -l JavaScript -e 'function run(a){try{return String(JSON.parse(a[0]).list_name||"Claude Projects")}catch(e){return "Claude Projects"}}' "$(cat "$STATE_DIR/config.json" 2>/dev/null || echo '{}')")
-  export CUEBIRD_LIST
-fi
+project_name() { # $1 dir → the name Claude Code shows: origin repo name, else main checkout dir
+  local url common
+  url=$(git -C "$1" remote get-url origin 2>/dev/null) && [ -n "$url" ] && { url="${url%.git}"; echo "${url##*[/:]}"; return; }
+  # --git-common-dir points into the MAIN checkout, so every worktree maps to one project
+  common=$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) && { basename "$(dirname "$common")"; return; }
+  basename "$1"
+}
+default_project() { # new entries only: a status transition must keep the entry's own project
+  # Deterministic, so dedup scopes and list names never drift with the model's wording.
+  [ -n "${CUEBIRD_PROJECT:-}" ] || [ -n "${CUEBIRD_ID:-}" ] \
+    || export CUEBIRD_PROJECT="$(project_name "${CUEBIRD_PROJECT_PATH:-$PWD}")"
+}
 
 die2() { echo "$1" >&2; exit 2; }
 
@@ -151,7 +160,8 @@ case "$cmd" in
     [ -n "$title" ] || die2 "empty title"
     comps=$(validate_due "$due") || exit 2
     read -r y m d H M <<< "$comps"
-    rid=$("$ADAPTER" add "$y" "$m" "$d" "$H" "$M" "$title" "${CUEBIRD_BODY:-}") || exit $?
+    default_project
+    rid=$("$ADAPTER" add "$y" "$m" "$d" "$H" "$M" "$title" "${CUEBIRD_BODY:-}" "$CUEBIRD_PROJECT") || exit $?
     out=$(CUEBIRD_REMINDER_ID="$rid" jxa_journal append accepted "$title" "$due") \
       || { echo "journal build failed (reminder created: $rid)" >&2; exit 12; }
     nmid="${out%%$'\n'*}"
@@ -184,6 +194,7 @@ case "$cmd" in
     [ -n "$st" ] || die2 "missing status"
     case "$st" in accepted|declined|deferred|cancelled|done) ;; *) die2 "bad status: $st";; esac
     [ -n "$ti" ] || die2 "empty title"
+    default_project
     out=$(jxa_journal append "$st" "$ti" "$du") || exit 2
     id="${out%%$'\n'*}"
     line="${out#*$'\n'}"
@@ -232,6 +243,9 @@ case "$cmd" in
     st="${1:-}"; [ -n "$st" ] || die2 "missing status"
     jxa_journal prune "$st"
     ;;
+  project)
+    project_name "${1:-$PWD}"
+    ;;
   health)
     "$ADAPTER" health
     ;;
@@ -242,13 +256,15 @@ case "$cmd" in
     tdir=$(mktemp -d)
     tid=$(CUEBIRD_STATE_DIR="$tdir" "$SELF_DIR/cuebird.sh" log declined "selftest" "-") || st_fail "journal write"
     CUEBIRD_STATE_DIR="$tdir" "$SELF_DIR/cuebird.sh" get "$tid" >/dev/null || st_fail "journal read"
-    export CUEBIRD_LIST="Claude Projects Test"
+    # throwaway list, its map kept in the temp dir
+    export CUEBIRD_STATE_DIR="$tdir"
     y=$(date -v+1d +%Y); m=$(date -v+1d +%m); d=$(date -v+1d +%d)
-    rid=$("$ADAPTER" add "$y" "$m" "$d" 10 30 "Cuebird selftest" "created and removed by cuebird:doctor") || st_fail "adapter add"
+    rid=$("$ADAPTER" add "$y" "$m" "$d" 10 30 "Cuebird selftest" "created and removed by cuebird:doctor" "Cuebird Selftest") || st_fail "adapter add"
     [ "$("$ADAPTER" status "$rid")" = "pending" ] || st_fail "status after add"
     "$ADAPTER" complete "$rid" || st_fail "complete"
     "$ADAPTER" delete "$rid"   || st_fail "delete"
     [ "$("$ADAPTER" status "$rid")" = "missing" ] || st_fail "status after delete"
+    "$ADAPTER" droplist "Cuebird Selftest" || st_fail "droplist"
     echo "SELFTEST PASSED"
     ;;
   *) die2 "unknown command: $cmd" ;;

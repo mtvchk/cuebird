@@ -31,8 +31,13 @@ use *is* the setup.
 ```
 
 No further configuration. The first time you accept a reminder, macOS asks
-once for permission to control Reminders — that's the only setup screen
+once for permission to access Reminders — that's the only setup screen
 you'll see.
+
+Each project gets its own Reminders list, named the way Claude Code names
+the project (worktrees count as their main project). Want them tidy? Put
+them in a list group by hand (Reminders → File → New Group) — Cuebird keeps
+finding them.
 
 ## How it works
 
@@ -42,7 +47,7 @@ you'll see.
  2. offer          ──  a deadline surfaces in conversation — yours, or
                         Claude's own plan — Claude offers once
  3. consent        ──  you say "yes" (or adjust the date in one breath)
- 4. osascript      ──  Claude creates the reminder in Apple Reminders
+ 4. EventKit       ──  Claude creates the reminder in the project's list
                         and reads it back to confirm it really exists
  5. iCloud sync    ──  the reminder syncs to your other Apple devices,
                         typically within seconds
@@ -78,8 +83,7 @@ the exact fix for whatever's wrong.
 The two most common issues:
 
 - **"macOS denied access to Reminders."** Go to System Settings → Privacy &
-  Security → Automation → (your terminal/Claude) → enable Reminders, then
-  retry.
+  Security → Reminders → enable it for your terminal/Claude, then retry.
 - **"Reminders will only be created on this Mac — your iPhone won't see
   them."** Your Reminders app isn't signed into iCloud. Go to System
   Settings → Apple ID → iCloud → enable Reminders.
