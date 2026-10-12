@@ -39,30 +39,34 @@ one fails.
 1. **System**: `uname` is `Darwin` and `command -v osascript` succeeds.
    ✗fix: Cuebird v1 works only on macOS.
 
-2. **Permission**: `osascript -e 'tell application "Reminders" to count accounts'`.
-   Nonzero exit, or output containing `-1743` / `Not authorized` → ✗fix:
-   macOS заборонив доступ до Нагадувань. Увімкни: System Settings → Privacy
-   & Security → Automation → (твій термінал/Claude) → Reminders — і повтори.
-   Otherwise ✓ (report the account count printed).
+2. **Permission**: `"$CUEBIRD" health` (call it ONCE here and reuse its
+   result for check 3). Exit 10 → ✗fix: macOS заборонив доступ до
+   Нагадувань. Увімкни: System Settings → Privacy & Security → Reminders →
+   (твій термінал/Claude) — і повтори. (On the very first run macOS may show
+   its own «… would like to access your Reminders» dialog instead — tell the
+   user to allow it.) Any other exit 0 → ✓.
 
-3. **iCloud**: `"$CUEBIRD" health` → stdout starting `ok ` (space) means
-   iCloud ✓ — report the `account/list` that follows. Stdout starting
+3. **iCloud**: from that same `health` call — stdout starting `ok ` (space)
+   means iCloud ✓ — report the account name that follows. Stdout starting
    `ok-local ` → ⚠: «Нагадування створяться лише на цьому Mac — iPhone їх
    не побачить. Увімкни Reminders в iCloud (System Settings → Apple ID →
-   iCloud).» Nonzero exit → ✗fix: exit 10 → same wording as check 2's fix;
-   exit 12 or anything else → ✗fix: «Щось пішло не так із застосунком
-   Нагадування. Перевір, що він встановлений і відкривається.»
+   iCloud).» Exit 12 or anything else non-zero (other than 10) → ✗fix:
+   «Щось пішло не так із застосунком Нагадування. Перевір, що він
+   встановлений і відкривається.»
 
-4. **List**: covered by the same `health` call from check 3 — don't call it
-   twice. Report ✓ with the same `account/list` (health creates the list if
-   it's missing, so a ✓ here means the list exists now regardless of
-   whether it existed before).
+4. **Lists**: each project gets its own Reminders list, named like the
+   project in Claude Code (created on its first reminder). Read the map:
+   `cat ~/.claude/cuebird/lists.json 2>/dev/null` → ✓ «Списки проєктів:
+   <names>» (or «ще жодного — з'явиться з першим нагадуванням»). Purely
+   informational, never ✗. If the user wants them tidy, tip once: «Можна
+   зібрати їх в одну групу вручну: Нагадування → File → New Group, і
+   перетягнути списки — Cuebird і далі їх бачить.»
 
 5. **Round-trip**: `"$CUEBIRD" selftest` → stdout containing `SELFTEST
    PASSED` and exit 0 → ✓. This creates, verifies, completes and deletes a
-   real test reminder due tomorrow 10:30 in list «Claude Projects Test» —
-   don't be alarmed if that list is momentarily visible in Reminders during
-   the check. Otherwise ✗fix: surface the exact `SELFTEST FAILED: <step>`
+   real test reminder due tomorrow 10:30 in a throwaway list «Cuebird
+   Selftest» and then deletes the list — don't be alarmed if it is
+   momentarily visible in Reminders during the check. Otherwise ✗fix: surface the exact `SELFTEST FAILED: <step>`
    line from its output verbatim — that step name is the actual failure
    point (e.g. `adapter add` usually means the same permission/iCloud issue
    as checks 2–3; re-run those first).

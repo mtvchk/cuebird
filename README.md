@@ -46,16 +46,20 @@ configuration file to edit.
 /plugin install cuebird@cuebird
 ```
 
-The first time you accept a reminder, macOS asks once for permission to control
+The first time you accept a reminder, macOS asks once for permission to access
 Reminders. No further configuration is required.
+
+Each project gets its own Reminders list, named the way Claude Code names the
+project (worktrees count as their main project). Want them tidy? Put them in a
+list group by hand (Reminders → File → New Group); Cuebird keeps finding them.
 
 ## How it works
 
 1. The session hook tells Claude to notice actionable future checkpoints.
 2. Claude offers one meaningful reminder when a deadline surfaces.
 3. You accept it or adjust the date in the same reply.
-4. Cuebird creates the reminder with `osascript` and reads it back to confirm it
-   exists.
+4. Cuebird creates the reminder in the project's list via EventKit and reads it
+   back to confirm it exists.
 5. iCloud syncs the reminder to your other Apple devices, typically within
    seconds.
 6. Your iPhone shows the notification locally, even if your Mac is off.
@@ -86,8 +90,7 @@ Run `cuebird:doctor` first. It checks seven things end to end and names the
 specific fix when something is wrong.
 
 - **"macOS denied access to Reminders."** Go to **System Settings → Privacy &
-  Security → Automation**, enable Reminders for your terminal or Claude, then
-  retry.
+  Security → Reminders**, enable it for your terminal or Claude, then retry.
 - **"Reminders will only be created on this Mac."** Go to **System Settings →
   Apple ID → iCloud** and enable Reminders.
 

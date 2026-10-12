@@ -55,6 +55,10 @@ Resolve `$CUEBIRD` using these methods, in order — never guess beyond them:
   Прийде на iPhone.»
 - Propose the MEANINGFUL date — the decision point, not the mention date.
   "14+ днів від 10.07" → offer 24.07. Exactly one option; the user adjusts.
+- **Project name** is never yours to invent: it is what Claude Code shows
+  for the repo, derived by `$CUEBIRD project '<absolute project path>'`
+  (origin repo name; every worktree maps to its main project). Wherever
+  `<project>` appears below, use that command's output.
 - Before offering, check for duplicates: run `$CUEBIRD list all '<project>'`
   (the project argument scopes the check to this project) and skip the offer
   if an entry with the same intent and date already exists (any status). If
@@ -85,12 +89,12 @@ Resolve `$CUEBIRD` using these methods, in order — never guess beyond them:
 - **Yes** → create (below).
 - **No** → run the command, then move on with no extra ceremony — the
   user's "no" already closes the topic, it needs no separate confirmation:
-  `CUEBIRD_PROJECT='<project>' $CUEBIRD log declined '<title>' '<YYYY-MM-DDTHH:MM>'`
+  `CUEBIRD_PROJECT_PATH='<absolute path>' $CUEBIRD log declined '<title>' '<YYYY-MM-DDTHH:MM>'`
   Never re-offer this deadline; it stays reversible via cuebird:reminders.
 - **"Not now / ask closer to the date"** → agree on a re-offer date, run the
   command below, then acknowledge in one short sentence (their language),
   e.g. «Гаразд, нагадаю ближче до дати.»:
-  `CUEBIRD_PROJECT='<project>' CUEBIRD_REOFFER_AT='<YYYY-MM-DDTHH:MM>' $CUEBIRD log deferred '<title>' '<due>'`
+  `CUEBIRD_PROJECT_PATH='<absolute path>' CUEBIRD_REOFFER_AT='<YYYY-MM-DDTHH:MM>' $CUEBIRD log deferred '<title>' '<due>'`
 - Declining one deadline NEVER mutes other or future deadlines.
 - If a `log` command itself fails (non-zero exit, no id printed), that's a
   local bookkeeping failure only — nothing was promised in Reminders — so
@@ -139,7 +143,6 @@ Then run as ONE bash invocation exactly as shown (env vars carry the long
 fields safely — don't split this across separate tool calls):
 ```bash
 CUEBIRD_BODY='<body — single-quoted, embedded '\'' escaped>' \
-CUEBIRD_PROJECT='<project name>' \
 CUEBIRD_PROJECT_PATH='<absolute path>' \
 CUEBIRD_CONTEXT='<one-line context>' \
 CUEBIRD_RESUME_PROMPT='<resume prompt — single-quoted, embedded '\'' escaped>' \
@@ -163,14 +166,15 @@ empty): run `"$CUEBIRD" health` first, before composing anything else.
   until the user has acted on the fix.
 
 After the first successful create, add one extra sentence: «Керувати
-нагадуваннями можна у застосунку Нагадування — список 'Claude Projects'.»
+нагадуваннями можна у застосунку Нагадування — у кожного проєкту свій
+список із його назвою.»
 
 ## Failures — exact user-facing messages (never show raw errors)
 
 | Signal | Say (user's language, this content) |
 |---|---|
-| exit 10 (from `add`, `health`, `complete`, or `cancel`) | «macOS заборонив доступ до Нагадувань. Увімкни: System Settings → Privacy & Security → Automation → (твій термінал/Claude) → Reminders — і повтори.» |
+| exit 10 (from `add`, `health`, `complete`, or `cancel`) | «macOS заборонив доступ до Нагадувань. Увімкни: System Settings → Privacy & Security → Reminders → (твій термінал/Claude) — і повтори.» |
 | `health` → `ok-local` | «Нагадування створиться лише на цьому Mac — iPhone його не побачить. Увімкни Reminders в iCloud (System Settings → Apple ID → iCloud). Створити локально все одно?» |
-| exit 11 (from `add`) | «Не зміг підтвердити створення — перевір список Claude Projects у Нагадуваннях. Запусти cuebird:doctor, якщо повториться.» (the reminder may or may not actually exist — that's exactly why this points at the list instead of asserting failure either way) |
-| exit 12 | Look at stderr first, for the substrings `journal write failed` or `reminder created:`. If either appears, the Reminders-side action already succeeded (a reminder was created by `add`, or its state was changed by `complete`/`cancel`) and only the local tracking write failed — say so honestly, e.g. «Нагадування створено, але я не зберіг запис локально — перевір список Claude Projects; спробую дозаписати пізніше.» Never call this an outright failure when either substring is present. If neither substring appears, it's a genuine failure: «Щось пішло не так із застосунком Нагадування. Запусти cuebird:doctor.» |
+| exit 11 (from `add`) | «Не зміг підтвердити створення — перевір список проєкту в Нагадуваннях. Запусти cuebird:doctor, якщо повториться.» (the reminder may or may not actually exist — that's exactly why this points at the list instead of asserting failure either way) |
+| exit 12 | Look at stderr first, for the substrings `journal write failed` or `reminder created:`. If either appears, the Reminders-side action already succeeded (a reminder was created by `add`, or its state was changed by `complete`/`cancel`) and only the local tracking write failed — say so honestly, e.g. «Нагадування створено, але я не зберіг запис локально — перевір список проєкту; спробую дозаписати пізніше.» Never call this an outright failure when either substring is present. If neither substring appears, it's a genuine failure: «Щось пішло не так із застосунком Нагадування. Запусти cuebird:doctor.» |
 | exit 2 (past date, calendar-invalid date like Feb 30, empty title) | Composition error on your side, never the user's — fix and retry silently, don't surface raw text. For an impossible date, stderr names the normalized date it tried (e.g. "did you mean 2026-03-02T09:00?"); use that, or otherwise recompute a valid future date yourself, and retry. Ask the user only if their intent was genuinely ambiguous. |

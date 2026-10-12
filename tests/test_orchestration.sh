@@ -51,23 +51,16 @@ rid3=$(echo  "$out3" | sed 's/.*"reminder_id":"\([^"]*\)".*/\1/')
 "$N" complete >/dev/null 2>&1; [ $? -eq 2 ] || fail "complete without id must exit 2"
 "$N" cancel "nm_nope" >/dev/null 2>&1; [ $? -eq 3 ] || fail "cancel on missing id must exit 3"
 
-# list_name from config.json is wired into CUEBIRD_LIST when the env var is unset
-lncfg_dir=$(mktemp -d)
-printf '{"list_name":"Custom List","default_hour":9}\n' > "$lncfg_dir/config.json"
-lncfg_seen=$(mktemp)
-lncfg_wrapper=$(mktemp)
-cat > "$lncfg_wrapper" <<EOF
+# add passes the derived project name to the adapter as its list name
+seen=$(mktemp); wrapper=$(mktemp)
+cat > "$wrapper" <<EOF
 #!/bin/bash
-echo "\$CUEBIRD_LIST" >> "$lncfg_seen"
+[ "\$1" = add ] && echo "\${9:-}" >> "$seen"
 exec "$PWD/tests/mock-adapter.sh" "\$@"
 EOF
-chmod +x "$lncfg_wrapper"
-(
-  unset CUEBIRD_LIST
-  CUEBIRD_STATE_DIR="$lncfg_dir" MOCK_DB=$(mktemp) CUEBIRD_ADAPTER="$lncfg_wrapper" \
-    "$N" add "$DUE" "list name test" >/dev/null
-) || fail "list_name test: add failed"
-grep -qx "Custom List" "$lncfg_seen" \
-  || fail "list_name from config.json not wired into CUEBIRD_LIST (got: $(cat "$lncfg_seen"))"
+chmod +x "$wrapper"
+( unset CUEBIRD_PROJECT; CUEBIRD_ADAPTER="$wrapper" CUEBIRD_PROJECT_PATH=/tmp/no-git-here "$N" add "$DUE" "list name test" >/dev/null ) \
+  || fail "project arg test: add failed"
+grep -qx "no-git-here" "$seen" || fail "derived project not passed to adapter (got: $(cat "$seen"))"
 
 echo "ALL ORCHESTRATION TESTS PASSED"
