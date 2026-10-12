@@ -26,7 +26,7 @@ use *is* the setup.
 ## Install
 
 ```
-/plugin marketplace add itsmynamee/cuebird
+/plugin marketplace add mtvchk/cuebird
 /plugin install cuebird@cuebird
 ```
 

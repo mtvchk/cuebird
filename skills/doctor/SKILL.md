@@ -111,16 +111,14 @@ one fails.
    ```bash
    local_version=$(grep -m1 '"version"' "$PLUGIN_ROOT/.claude-plugin/plugin.json" \
      | sed -E 's/.*"version": *"([^"]+)".*/\1/')
-   gh_out=$(curl -s --max-time 5 https://api.github.com/repos/itsmynamee/cuebird/releases/latest)
+   gh_out=$(curl -s --max-time 5 https://api.github.com/repos/mtvchk/cuebird/releases/latest)
    curl_rc=$?
    ```
    - `curl_rc` ≠ 0 (timeout, no network, DNS failure) → ✓ (informational,
      never a failure): «пропущено (немає мережі)».
    - `curl_rc` = 0 but the body has no `tag_name` (e.g. `"message": "Not
      Found"` — no release published yet, or the repo doesn't exist yet) →
-     ✓: «пропущено (реліз ще не опубліковано)». This is the current real
-     state of `itsmynamee/cuebird` — expect this path, not the network-skip
-     path, until the first GitHub release is published.
+     ✓: «пропущено (реліз ще не опубліковано)».
    - Otherwise extract `tag_name`, strip a leading `v`, and compare against
      `local_version` as plain strings (no semver math needed — GitHub's
      `/releases/latest` already returns the newest non-prerelease tag, so
