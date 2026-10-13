@@ -44,7 +44,7 @@ function readMap() {
   try { return t.isNil() ? {} : JSON.parse(ObjC.unwrap(t)); } catch (e) { return {}; }
 }
 function writeMap(m) {
-  // ponytail: no lock, two first-ever adds for one project at the same instant make two lists
+  // Deliberate simplification: no lock, two first-ever adds for one project at the same instant make two lists
   $.NSString.alloc.initWithUTF8String(JSON.stringify(m, null, 1) + '\n')
     .writeToFileAtomicallyEncodingError(env('CUEBIRD_MAP'), true, $.NSUTF8StringEncoding, null);
 }
