@@ -16,8 +16,6 @@ Reminders, syncs to your iPhone over iCloud within seconds, and fires locally on
 the phone at the right moment — whether your Mac is on, Claude Code is running,
 or this plugin is even still installed.
 
-Looking for the Codex edition? Use [Cuebird CX](https://github.com/mtvchk/cuebird-cx).
-
 ## Why Cuebird
 
 - **Survives the session:** reminders fire on your Apple devices even when the
